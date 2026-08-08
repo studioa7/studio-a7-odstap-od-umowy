@@ -4,7 +4,7 @@ Tags:              woocommerce, prawo odstąpienia od umowy, consumer rights, eu
 Requires at least: 6.0
 Tested up to:      6.8
 Requires PHP:      8.0
-Stable tag:        1.1.0
+Stable tag:        1.1.1
 License:           GPL-2.0-or-later
 License URI:       https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -78,6 +78,10 @@ Tak. Treść i temat emaila edytujesz w **WooCommerce → Ustawienia → Email �
 7. Metabox w szczegółach zamówienia (admin)
 
 == Dziennik zmian ==
+
+= 1.1.1 =
+* Bezpieczne sprawdzanie zależności WooCommerce podczas aktywacji
+* Ochrona przed błędem krytycznym, gdy plik klasy nie został wdrożony
 
 = 1.0.0 =
 * Pierwsze wydanie
