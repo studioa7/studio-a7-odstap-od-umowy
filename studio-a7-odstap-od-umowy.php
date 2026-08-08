@@ -1,14 +1,14 @@
 <?php
 /**
- * Plugin Name:       Studio A7 – Odstąp od umowy
+ * Plugin Name:       Studio A7 – Odstąpienie od umowy for WooCommerce
  * Plugin URI:        https://studio-a7.pl
- * Description:       Profesjonalny przycisk odstąpienia od umowy dla WooCommerce zgodny z Dyrektywą UE 2023/2673 (obowiązuje od 19 czerwca 2026 r.). Dwuetapowy proces, potwierdzenie e-mail, panel zarządzania wnioskami.
+ * Description:       Narzędzie do obsługi oświadczeń o odstąpieniu od umowy dla sklepów korzystających z WooCommerce.
  * Version:           1.1.1
  * Requires at least: 6.0
  * Requires PHP:      8.0
  * Author:            Studio A7
  * Author URI:        https://studio-a7.pl
- * License:           GPL-2.0-or-later
+ * License:           GPLv2 or later
  * License URI:       https://www.gnu.org/licenses/gpl-2.0.html
  * Text Domain:       studio-a7-odstap
  * Domain Path:       /languages
@@ -55,7 +55,7 @@ function a7w_check_dependencies(): bool
 function a7w_missing_woocommerce_notice(): void
 {
 	echo '<div class="notice notice-error"><p>'
-		. esc_html__('Studio A7 – Odstąp od umowy wymaga zainstalowanego i aktywnego WooCommerce.', 'studio-a7-odstap')
+		. esc_html__('Studio A7 – Odstąpienie od umowy for WooCommerce wymaga zainstalowanego i aktywnego WooCommerce.', 'studio-a7-odstap')
 		. '</p></div>';
 }
 
@@ -70,7 +70,7 @@ function a7w_missing_plugin_file_notice(string $relative_path): void
 		. esc_html(
 			sprintf(
 				/* translators: %s: relative plugin file path. */
-				__('Studio A7 – Odstąp od umowy nie może zostać uruchomiona, ponieważ brakuje pliku: %s.', 'studio-a7-odstap'),
+				__('Studio A7 – Odstąpienie od umowy for WooCommerce nie może zostać uruchomiona, ponieważ brakuje pliku: %s.', 'studio-a7-odstap'),
 				$relative_path
 			)
 		)
@@ -170,7 +170,7 @@ function a7w_activate(): void
 {
 	if (!a7w_check_dependencies()) {
 		deactivate_plugins(A7W_PLUGIN_BASE);
-		wp_die(esc_html__('Studio A7 – Odstąp od umowy wymaga aktywnego WooCommerce.', 'studio-a7-odstap'));
+		wp_die(esc_html__('Studio A7 – Odstąpienie od umowy for WooCommerce wymaga aktywnego WooCommerce.', 'studio-a7-odstap'));
 	}
 
 	if (!a7w_load_plugin_file('includes/class-a7-withdrawal-db.php') || !class_exists('A7_Withdrawal_DB')) {

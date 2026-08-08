@@ -1,18 +1,18 @@
-=== Studio A7 – Odstąp od umowy ===
+=== Studio A7 – Odstąpienie od umowy for WooCommerce ===
 Contributors:      studioa7
 Tags:              woocommerce, prawo odstąpienia od umowy, consumer rights, eu directive, withdrawal
 Requires at least: 6.0
 Tested up to:      6.8
 Requires PHP:      8.0
 Stable tag:        1.1.1
-License:           GPL-2.0-or-later
+License:           GPLv2 or later
 License URI:       https://www.gnu.org/licenses/gpl-2.0.html
 
-Profesjonalny przycisk „Odstąp od umowy" dla WooCommerce, wspierający obsługę oświadczeń klientów.
+Narzędzie Studio A7 do obsługi oświadczeń klientów dla sklepów korzystających z WooCommerce.
 
 == Opis ==
 
-Wtyczka **Studio A7 – Odstąp od umowy** umożliwia klientom łatwe złożenie oświadczenia
+Wtyczka **Studio A7 – Odstąpienie od umowy for WooCommerce** umożliwia klientom łatwe złożenie oświadczenia
 o odstąpieniu od umowy bezpośrednio w panelu zamówień WooCommerce. Wtyczka wspiera
 dwuetapowe złożenie oświadczenia i trwałe potwierdzenie e-mail.
 
@@ -29,9 +29,9 @@ dwuetapowe złożenie oświadczenia i trwałe potwierdzenie e-mail.
 * **Kolumna w tabeli zamówień** – szybki podgląd statusu dla każdego zamówienia
 * **Zgodny z HPOS** – działa z High-Performance Order Storage WooCommerce
 
-= Ważna informacja prawna =
+= Disclaimer =
 
-Wtyczka jest narzędziem technicznym i nie stanowi porady prawnej ani gwarancji zgodności z przepisami. Sprzedawca odpowiada za weryfikację podstawy prawnej, wyjątków, terminów, treści komunikacji oraz polityki retencji danych dla swojej działalności i rynków docelowych.
+Wtyczka jest wyłącznie narzędziem technicznym ułatwiającym obsługę oświadczeń o odstąpieniu od umowy. Nie stanowi profesjonalnej porady prawnej ani gwarancji zgodności z przepisami. Sprzedawca odpowiada za weryfikację podstawy prawnej, wyjątków, terminów, treści komunikacji oraz polityki retencji danych dla swojej działalności i rynków docelowych.
 
 = Autor =
 
