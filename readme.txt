@@ -35,7 +35,7 @@ Wtyczka jest wyłącznie narzędziem technicznym ułatwiającym obsługę oświa
 
 = Autor =
 
-Wtyczka stworzona przez [Studio A7](https://studio-a7.pl) – agencja WordPress & WooCommerce.
+Wtyczka stworzona przez [Studio A7] (https://studioa7.pl) – agencja wspierająca WordPress & WooCommerce.
 
 == Instalacja ==
 
