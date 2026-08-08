@@ -19,6 +19,7 @@ defined( 'ABSPATH' ) || exit;
  */
 class A7_Withdrawal_Handler {
 
+
 	/** @var A7_Withdrawal_DB */
 	private A7_Withdrawal_DB $db;
 
@@ -36,7 +37,7 @@ class A7_Withdrawal_Handler {
 	 * @param int|\WC_Order $order ID zamówienia lub obiekt WC_Order.
 	 * @return true|\WP_Error True jeśli kwalifikuje, WP_Error z przyczyną w przeciwnym razie.
 	 */
-	public function can_withdraw( int|\WC_Order $order ): true|\WP_Error {
+	public function can_withdraw( int|\WC_Order $order, int $ignored_withdrawal_id = 0 ): true|\WP_Error {
 		if ( is_int( $order ) ) {
 			$order = wc_get_order( $order );
 		}
@@ -56,9 +57,10 @@ class A7_Withdrawal_Handler {
 			);
 		}
 
-		// 2. Termin 14 dni
+		// 2. Termin odstąpienia: data ukończenia jest najbliższym dostępnym
+		// wskaźnikiem dostarczenia; dla starszych zamówień używamy daty utworzenia.
 		$withdrawal_days = (int) get_option( 'a7w_withdrawal_days', 14 );
-		$order_date      = $order->get_date_created();
+		$order_date      = $order->get_date_completed() ?: $order->get_date_created();
 
 		if ( ! $order_date ) {
 			return new \WP_Error( 'invalid_date', __( 'Nie można odczytać daty zamówienia.', 'studio-a7-odstap' ) );
@@ -78,7 +80,7 @@ class A7_Withdrawal_Handler {
 		}
 
 		// 3. Brak istniejącego wniosku
-		if ( $this->db->order_has_withdrawal( $order->get_id() ) ) {
+		if ( $this->db->order_has_withdrawal( $order->get_id(), $ignored_withdrawal_id ) ) {
 			return new \WP_Error(
 				'already_withdrawn',
 				__( 'Dla tego zamówienia zostało już złożone oświadczenie o odstąpieniu od umowy.', 'studio-a7-odstap' )
@@ -91,11 +93,11 @@ class A7_Withdrawal_Handler {
 			return $exclusion_check;
 		}
 
-		// 5. Zamówienie należy do zalogowanego klienta (lub gościa przez token w emailu)
+		// 5. Tylko uwierzytelniony właściciel zamówienia może złożyć oświadczenie.
 		$current_user_id = get_current_user_id();
 		$order_user_id   = (int) $order->get_customer_id();
 
-		if ( $current_user_id > 0 && $order_user_id > 0 && $current_user_id !== $order_user_id ) {
+		if ( $current_user_id <= 0 || $order_user_id <= 0 || $current_user_id !== $order_user_id ) {
 			return new \WP_Error( 'not_owner', __( 'Brak dostępu do tego zamówienia.', 'studio-a7-odstap' ) );
 		}
 
@@ -194,12 +196,27 @@ class A7_Withdrawal_Handler {
 		$order_id = absint( $post_data['order_id'] ?? 0 );
 		$reason   = sanitize_textarea_field( $post_data['reason'] ?? '' );
 		$nonce    = $post_data['_wpnonce'] ?? '';
+		$consent  = isset( $post_data['consent'] ) ? sanitize_text_field( $post_data['consent'] ) : '';
 
 		// Weryfikacja nonce
 		if ( ! wp_verify_nonce( $nonce, 'a7w_step1_' . $order_id ) ) {
 			return array(
 				'success' => false,
 				'message' => __( 'Błąd bezpieczeństwa. Odśwież stronę i spróbuj ponownie.', 'studio-a7-odstap' ),
+			);
+		}
+
+		if ( 'on' !== $consent ) {
+			return array(
+				'success' => false,
+				'message' => __( 'Potwierdź oświadczenie przed przejściem dalej.', 'studio-a7-odstap' ),
+			);
+		}
+
+		if ( 'yes' === get_option( 'a7w_require_reason', 'no' ) && '' === $reason ) {
+			return array(
+				'success' => false,
+				'message' => __( 'Podaj powód odstąpienia od umowy.', 'studio-a7-odstap' ),
 			);
 		}
 
@@ -235,8 +252,8 @@ class A7_Withdrawal_Handler {
 				'status'         => 'pending',
 				'token'          => $token,
 				'ip_address'     => $this->get_client_ip(),
-			'user_agent'     => substr( $_SERVER['HTTP_USER_AGENT'] ?? '', 0, 500 ), // phpcs:ignore
-			'created_at'         => current_time( 'mysql' ),
+				'user_agent'     => '',
+				'created_at'     => current_time( 'mysql' ),
 			)
 		);
 
@@ -251,6 +268,7 @@ class A7_Withdrawal_Handler {
 			'success'       => true,
 			'message'       => __( 'Wniosek przygotowany. Potwierdź odstąpienie w następnym kroku.', 'studio-a7-odstap' ),
 			'token'         => $token,
+			'nonce2'        => wp_create_nonce( 'a7w_step2_' . $token ),
 			'withdrawal_id' => $withdrawal_id,
 		);
 	}
@@ -302,7 +320,7 @@ class A7_Withdrawal_Handler {
 		}
 
 		// Sprawdź ponownie kwalifikowalność (zabezpieczenie)
-		$can = $this->can_withdraw( (int) $withdrawal->order_id );
+		$can = $this->can_withdraw( (int) $withdrawal->order_id, (int) $withdrawal->id );
 		if ( is_wp_error( $can ) ) {
 			return array(
 				'success' => false,
@@ -369,7 +387,7 @@ class A7_Withdrawal_Handler {
 	 */
 	public function get_days_remaining( \WC_Order $order ): int {
 		$withdrawal_days = (int) get_option( 'a7w_withdrawal_days', 14 );
-		$order_date      = $order->get_date_created();
+		$order_date      = $order->get_date_completed() ?: $order->get_date_created();
 
 		if ( ! $order_date ) {
 			return 0;
@@ -395,15 +413,11 @@ class A7_Withdrawal_Handler {
 	 * @return string Adres IP.
 	 */
 	private function get_client_ip(): string {
-		$ip_keys = array(
-			'HTTP_CLIENT_IP',
-			'HTTP_X_FORWARDED_FOR',
-			'REMOTE_ADDR',
-		);
+		$ip_keys = array( 'REMOTE_ADDR' );
 
 		foreach ( $ip_keys as $key ) {
-			if ( ! empty( $_SERVER[ $key ] ) ) { // phpcs:ignore
-				$ip = sanitize_text_field( wp_unslash( $_SERVER[ $key ] ) ); // phpcs:ignore
+			if (!empty($_SERVER[$key])) { // phpcs:ignore
+				$ip = sanitize_text_field(wp_unslash($_SERVER[$key])); // phpcs:ignore
 				// Weź pierwszy IP z listy (w przypadku X-Forwarded-For)
 				$ip = explode( ',', $ip )[0];
 				$ip = trim( $ip );

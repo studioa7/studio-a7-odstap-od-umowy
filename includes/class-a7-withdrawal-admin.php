@@ -18,6 +18,7 @@ defined( 'ABSPATH' ) || exit;
  */
 class A7_Withdrawal_Admin {
 
+
 	/** @var A7_Withdrawal_Admin|null */
 	private static ?A7_Withdrawal_Admin $instance = null;
 
@@ -192,9 +193,45 @@ class A7_Withdrawal_Admin {
 			array(
 				'type'              => 'string',
 				'default'           => get_option( 'admin_email' ),
-				'sanitize_callback' => 'sanitize_email',
+				'sanitize_callback' => array( $this, 'sanitize_recipients' ),
 			)
 		);
+		register_setting(
+			'a7w_settings',
+			'a7w_retention_months',
+			array(
+				'type'              => 'integer',
+				'default'           => 24,
+				'sanitize_callback' => static function ( $value ): int {
+					return min( 120, max( 1, absint( $value ) ) );
+				},
+			)
+		);
+		register_setting(
+			'a7w_settings',
+			'a7w_delete_data_on_uninstall',
+			array(
+				'type'              => 'string',
+				'default'           => 'no',
+				'sanitize_callback' => static function ( $value ): string {
+					return 'yes' === $value ? 'yes' : 'no';
+				},
+			)
+		);
+	}
+
+	/**
+	 * Normalizuje adresy odbiorców rozdzielone przecinkami.
+	 *
+	 * @param mixed $value Wartość ustawienia.
+	 * @return string
+	 */
+	public function sanitize_recipients( $value ): string {
+		$recipients = array_filter(
+			array_map( 'sanitize_email', array_map( 'trim', explode( ',', (string) $value ) ) )
+		);
+
+		return implode( ',', array_unique( $recipients ) );
 	}
 
 	// =========================================================================
@@ -209,9 +246,9 @@ class A7_Withdrawal_Admin {
 		$view_path = A7W_PLUGIN_DIR . 'admin/views/requests-list.php';
 		if ( file_exists( $view_path ) ) {
 			// Przekaż dane do widoku
-			$status  = sanitize_text_field( $_GET['status'] ?? '' ); // phpcs:ignore
-			$search  = sanitize_text_field( $_GET['s'] ?? '' );      // phpcs:ignore
-			$page    = max( 1, absint( $_GET['paged'] ?? 1 ) );      // phpcs:ignore
+			$status = sanitize_text_field($_GET['status'] ?? ''); // phpcs:ignore
+			$search = sanitize_text_field($_GET['s'] ?? '');      // phpcs:ignore
+			$page = max(1, absint($_GET['paged'] ?? 1));      // phpcs:ignore
 			$data   = $this->db->get_list(
 				array(
 					'status'   => $status,
@@ -245,7 +282,7 @@ class A7_Withdrawal_Admin {
 
 	public function handle_export_csv(): void {
 		if (
-			! isset( $_GET['a7w_export'] ) // phpcs:ignore
+			!isset($_GET['a7w_export']) // phpcs:ignore
 			|| 'csv' !== $_GET['a7w_export'] // phpcs:ignore
 			|| ! current_user_can( 'manage_woocommerce' )
 			|| ! check_admin_referer( 'a7w_export_csv' )
@@ -260,10 +297,10 @@ class A7_Withdrawal_Admin {
 		header( 'Content-Disposition: attachment; filename="odstapienia-' . wp_date( 'Y-m-d' ) . '.csv"' );
 		header( 'Pragma: no-cache' );
 
-		$output = fopen( 'php://output', 'w' ); // phpcs:ignore
+		$output = fopen('php://output', 'w'); // phpcs:ignore
 
 		// UTF-8 BOM dla Excela
-		fputs( $output, "\xEF\xBB\xBF" ); // phpcs:ignore
+		fputs($output, "\xEF\xBB\xBF"); // phpcs:ignore
 
 		// Nagłówki
 		fputcsv(
@@ -300,7 +337,7 @@ class A7_Withdrawal_Admin {
 			);
 		}
 
-		fclose( $output ); // phpcs:ignore
+		fclose($output); // phpcs:ignore
 		exit;
 	}
 
@@ -417,23 +454,24 @@ class A7_Withdrawal_Admin {
 		<table class="a7w-meta-table">
 			<tr>
 				<th><?php esc_html_e( 'Status', 'studio-a7-odstap' ); ?></th>
-				<td><strong><?php echo esc_html( $status_labels[ $withdrawal->status ] ?? $withdrawal->status ); ?></strong></td>
+				<td><strong><?php echo esc_html( $status_labels[ $withdrawal->status ] ?? $withdrawal->status ); ?></strong>
+				</td>
 			</tr>
 			<tr>
 				<th><?php esc_html_e( 'Data złożenia', 'studio-a7-odstap' ); ?></th>
 				<td><?php echo esc_html( $withdrawal->created_at ); ?></td>
 			</tr>
 			<?php if ( $withdrawal->confirmed_at ) : ?>
-			<tr>
-				<th><?php esc_html_e( 'Data potwierdzenia', 'studio-a7-odstap' ); ?></th>
-				<td><?php echo esc_html( $withdrawal->confirmed_at ); ?></td>
-			</tr>
+				<tr>
+					<th><?php esc_html_e( 'Data potwierdzenia', 'studio-a7-odstap' ); ?></th>
+					<td><?php echo esc_html( $withdrawal->confirmed_at ); ?></td>
+				</tr>
 			<?php endif; ?>
 			<?php if ( ! empty( $withdrawal->reason ) ) : ?>
-			<tr>
-				<th><?php esc_html_e( 'Powód', 'studio-a7-odstap' ); ?></th>
-				<td><?php echo esc_html( $withdrawal->reason ); ?></td>
-			</tr>
+				<tr>
+					<th><?php esc_html_e( 'Powód', 'studio-a7-odstap' ); ?></th>
+					<td><?php echo esc_html( $withdrawal->reason ); ?></td>
+				</tr>
 			<?php endif; ?>
 			<tr>
 				<th>IP</th>

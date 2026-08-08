@@ -18,6 +18,7 @@ if ( ! class_exists( 'WC_Email' ) ) {
  */
 class A7_Email_Admin_Notification extends WC_Email {
 
+
 	/** @var object|null Rekord wniosku */
 	public ?object $withdrawal = null;
 
@@ -56,7 +57,10 @@ class A7_Email_Admin_Notification extends WC_Email {
 
 		// Odbiorca – email z ustawień lub domyślny admin
 		$admin_email     = get_option( 'a7w_admin_email', get_option( 'admin_email' ) );
-		$this->recipient = $admin_email;
+		$recipients      = array_filter(
+			array_map( 'sanitize_email', array_map( 'trim', explode( ',', (string) $admin_email ) ) )
+		);
+		$this->recipient = implode( ',', array_unique( $recipients ) );
 
 		if ( ! $this->is_enabled() || ! $this->get_recipient() ) {
 			$this->restore_locale();
@@ -67,13 +71,19 @@ class A7_Email_Admin_Notification extends WC_Email {
 			$this->placeholders['{order_number}'] = $order->get_order_number();
 		}
 
-		$this->send(
+		$sent = $this->send(
 			$this->get_recipient(),
 			$this->get_subject(),
 			$this->get_content(),
 			$this->get_headers(),
 			$this->get_attachments()
 		);
+
+		if ( ! $sent && $order ) {
+			$order->add_order_note(
+				__( 'Nie udało się wysłać powiadomienia e-mail o odstąpieniu do obsługi sklepu.', 'studio-a7-odstap' )
+			);
+		}
 
 		$this->restore_locale();
 	}

@@ -4,17 +4,17 @@ Tags:              woocommerce, prawo odstąpienia od umowy, consumer rights, eu
 Requires at least: 6.0
 Tested up to:      6.8
 Requires PHP:      8.0
-Stable tag:        1.0.0
+Stable tag:        1.1.0
 License:           GPL-2.0-or-later
 License URI:       https://www.gnu.org/licenses/gpl-2.0.html
 
-Profesjonalny przycisk „Odstąp od umowy" dla WooCommerce zgodny z Dyrektywą UE 2023/2673.
+Profesjonalny przycisk „Odstąp od umowy" dla WooCommerce, wspierający obsługę oświadczeń klientów.
 
 == Opis ==
 
 Wtyczka **Studio A7 – Odstąp od umowy** umożliwia klientom łatwe złożenie oświadczenia
-o odstąpieniu od umowy bezpośrednio w panelu zamówień WooCommerce. Wdrożenie jest w pełni
-zgodne z **Dyrektywą UE 2023/2673** (obowiązuje od 19 czerwca 2026 r.).
+o odstąpieniu od umowy bezpośrednio w panelu zamówień WooCommerce. Wtyczka wspiera
+dwuetapowe złożenie oświadczenia i trwałe potwierdzenie e-mail.
 
 = Kluczowe funkcje =
 
@@ -29,15 +29,9 @@ zgodne z **Dyrektywą UE 2023/2673** (obowiązuje od 19 czerwca 2026 r.).
 * **Kolumna w tabeli zamówień** – szybki podgląd statusu dla każdego zamówienia
 * **Zgodny z HPOS** – działa z High-Performance Order Storage WooCommerce
 
-= Wymogi prawne (Dyrektywa UE 2023/2673) =
+= Ważna informacja prawna =
 
-Od 19 czerwca 2026 r. sklepy internetowe sprzedające konsumentom w UE muszą:
-1. Udostępnić wyraźnie oznaczony przycisk inicjujący odstąpienie od umowy
-2. Wdrożyć dwuetapowy proces (złożenie oświadczenia + potwierdzenie)
-3. Niezwłocznie przesłać potwierdzenie na trwałym nośniku (email) z datą i godziną
-
-Niedostosowanie się grozi karą do **4% rocznego obrotu** i wydłużeniem terminu
-na odstąpienie do **12 miesięcy i 14 dni**.
+Wtyczka jest narzędziem technicznym i nie stanowi porady prawnej ani gwarancji zgodności z przepisami. Sprzedawca odpowiada za weryfikację podstawy prawnej, wyjątków, terminów, treści komunikacji oraz polityki retencji danych dla swojej działalności i rynków docelowych.
 
 = Autor =
 
@@ -54,9 +48,7 @@ Wtyczka stworzona przez [Studio A7](https://studio-a7.pl) – agencja WordPress 
 
 = Czy wtyczka jest zgodna z prawem polskim? =
 
-Tak. Wtyczka implementuje wymogi Dyrektywy UE 2023/2673, która transponuje przepisy
-do prawa polskiego (Ustawa o prawach konsumenta). Zalecamy konsultację z prawnikiem
-w celu dostosowania treści emaili i regulaminu sklepu.
+Wtyczka wspiera techniczną obsługę oświadczeń. Nie zastępuje analizy prawnej; skonsultuj konfigurację, treść e-maili i regulamin z prawnikiem.
 
 = Czy mogę wyłączyć prawo odstąpienia dla konkretnych produktów? =
 
@@ -96,3 +88,9 @@ Tak. Treść i temat emaila edytujesz w **WooCommerce → Ustawienia → Email �
 * Metabox i kolumna w panelu zamówień
 * Zgodność z HPOS WooCommerce
 * Licznik pozostałych dni na odstąpienie
+
+= 1.1.0 =
+* Wzmocniona kontrola właściciela zamówienia i walidacja po stronie serwera
+* Atomowe potwierdzanie oświadczeń oraz ograniczenie danych technicznych
+* Konfigurowalna retencja danych i opcjonalne usuwanie ich przy odinstalowaniu
+* Termin obliczany od daty ukończenia zamówienia z bezpiecznym fallbackiem

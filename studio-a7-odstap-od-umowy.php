@@ -3,7 +3,7 @@
  * Plugin Name:       Studio A7 – Odstąp od umowy
  * Plugin URI:        https://studio-a7.pl
  * Description:       Profesjonalny przycisk odstąpienia od umowy dla WooCommerce zgodny z Dyrektywą UE 2023/2673 (obowiązuje od 19 czerwca 2026 r.). Dwuetapowy proces, potwierdzenie e-mail, panel zarządzania wnioskami.
- * Version:           1.0.0
+ * Version:           1.1.0
  * Requires at least: 6.0
  * Requires PHP:      8.0
  * Author:            Studio A7
@@ -23,7 +23,7 @@ defined( 'ABSPATH' ) || exit;
 // -------------------------------------------------------------------------
 // Stałe wtyczki
 // -------------------------------------------------------------------------
-define( 'A7W_VERSION', '1.0.0' );
+define( 'A7W_VERSION', '1.1.0' );
 define( 'A7W_PLUGIN_FILE', __FILE__ );
 define( 'A7W_PLUGIN_DIR', plugin_dir_path( __FILE__ ) );
 define( 'A7W_PLUGIN_URL', plugin_dir_url( __FILE__ ) );
@@ -86,6 +86,9 @@ function a7w_init(): void {
 
 	// Uruchomienie modułów
 	A7_Withdrawal_DB::get_instance();
+	if ( A7W_VERSION !== get_option( 'a7w_db_version' ) ) {
+		A7_Withdrawal_DB::create_table();
+	}
 	A7_Withdrawal_Main::get_instance();
 	A7_Withdrawal_Admin::get_instance();
 }
@@ -100,16 +103,18 @@ function a7w_activate(): void {
 
 	// Domyślne opcje
 	$defaults = array(
-		'withdrawal_days'      => 14,
-		'allowed_statuses'     => array( 'wc-completed', 'wc-processing' ),
-		'excluded_categories'  => array(),
-		'exclude_virtual'      => 'yes',
-		'exclude_downloadable' => 'yes',
-		'admin_email'          => get_option( 'admin_email' ),
-		'button_label'         => __( 'Odstąp od umowy', 'studio-a7-odstap' ),
-		'show_days_remaining'  => 'yes',
-		'require_reason'       => 'no',
-		'notify_admin'         => 'yes',
+		'withdrawal_days'          => 14,
+		'allowed_statuses'         => array( 'wc-completed', 'wc-processing' ),
+		'excluded_categories'      => array(),
+		'exclude_virtual'          => 'yes',
+		'exclude_downloadable'     => 'yes',
+		'admin_email'              => get_option( 'admin_email' ),
+		'button_label'             => __( 'Odstąp od umowy', 'studio-a7-odstap' ),
+		'show_days_remaining'      => 'yes',
+		'require_reason'           => 'no',
+		'notify_admin'             => 'yes',
+		'retention_months'         => 24,
+		'delete_data_on_uninstall' => 'no',
 	);
 
 	foreach ( $defaults as $key => $value ) {

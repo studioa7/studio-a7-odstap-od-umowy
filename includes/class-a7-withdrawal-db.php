@@ -5,14 +5,16 @@
  * @package StudioA7_Withdrawal
  */
 
-defined( 'ABSPATH' ) || exit;
+defined('ABSPATH') || exit;
 
 /**
  * A7_Withdrawal_DB
  *
  * Zarządza tabelą `{prefix}_a7_withdrawals` przechowującą wnioski odstąpień.
  */
-class A7_Withdrawal_DB {
+class A7_Withdrawal_DB
+{
+
 
 	/** @var A7_Withdrawal_DB|null Singleton instance */
 	private static ?A7_Withdrawal_DB $instance = null;
@@ -23,14 +25,17 @@ class A7_Withdrawal_DB {
 	/**
 	 * Zwraca instancję singletona.
 	 */
-	public static function get_instance(): self {
-		if ( null === self::$instance ) {
+	public static function get_instance(): self
+	{
+		if (null === self::$instance) {
 			self::$instance = new self();
 		}
 		return self::$instance;
 	}
 
-	private function __construct() {}
+	private function __construct()
+	{
+	}
 
 	// -------------------------------------------------------------------------
 	// DDL – tworzenie tabeli
@@ -40,10 +45,11 @@ class A7_Withdrawal_DB {
 	 * Tworzy lub aktualizuje tabelę w bazie danych.
 	 * Wywołane przy aktywacji wtyczki.
 	 */
-	public static function create_table(): void {
+	public static function create_table(): void
+	{
 		global $wpdb;
 
-		$table_name      = $wpdb->prefix . self::TABLE;
+		$table_name = $wpdb->prefix . self::TABLE;
 		$charset_collate = $wpdb->get_charset_collate();
 
 		$sql = "CREATE TABLE {$table_name} (
@@ -61,14 +67,14 @@ class A7_Withdrawal_DB {
 			confirmed_at   DATETIME        DEFAULT NULL,
 			PRIMARY KEY  (id),
 			UNIQUE KEY   token    (token),
-			KEY          order_id (order_id),
+			UNIQUE KEY   order_id (order_id),
 			KEY          status   (status)
 		) {$charset_collate};";
 
 		require_once ABSPATH . 'wp-admin/includes/upgrade.php';
-		dbDelta( $sql );
+		dbDelta($sql);
 
-		update_option( 'a7w_db_version', A7W_VERSION );
+		update_option('a7w_db_version', A7W_VERSION);
 	}
 
 	// -------------------------------------------------------------------------
@@ -78,7 +84,8 @@ class A7_Withdrawal_DB {
 	/**
 	 * Zwraca pełną nazwę tabeli (z prefiksem).
 	 */
-	public function get_table(): string {
+	public function get_table(): string
+	{
 		global $wpdb;
 		return $wpdb->prefix . self::TABLE;
 	}
@@ -89,24 +96,25 @@ class A7_Withdrawal_DB {
 	 * @param array $data Dane wniosku.
 	 * @return int|false ID wstawionego rekordu lub false przy błędzie.
 	 */
-	public function insert( array $data ): int|false {
+	public function insert(array $data): int|false
+	{
 		global $wpdb;
 
 		$defaults = array(
-			'order_id'       => 0,
-			'customer_id'    => 0,
+			'order_id' => 0,
+			'customer_id' => 0,
 			'customer_email' => '',
-			'customer_name'  => '',
-			'reason'         => '',
-			'status'         => 'pending',
-			'token'          => '',
-			'ip_address'     => '',
-			'user_agent'     => '',
-			'created_at'     => current_time( 'mysql' ),
-			'confirmed_at'   => null,
+			'customer_name' => '',
+			'reason' => '',
+			'status' => 'pending',
+			'token' => '',
+			'ip_address' => '',
+			'user_agent' => '',
+			'created_at' => current_time('mysql'),
+			'confirmed_at' => null,
 		);
 
-		$data = wp_parse_args( $data, $defaults );
+		$data = wp_parse_args($data, $defaults);
 
 		$result = $wpdb->insert(
 			$this->get_table(),
@@ -136,21 +144,25 @@ class A7_Withdrawal_DB {
 	 * @param string $status Nowy status.
 	 * @return bool
 	 */
-	public function confirm( int $id, string $status = 'confirmed' ): bool {
+	public function confirm(int $id, string $status = 'confirmed'): bool
+	{
 		global $wpdb;
 
 		$result = $wpdb->update(
 			$this->get_table(),
 			array(
-				'status'       => $status,
-				'confirmed_at' => current_time( 'mysql' ),
+				'status' => $status,
+				'confirmed_at' => current_time('mysql'),
 			),
-			array( 'id' => $id ),
-			array( '%s', '%s' ),
-			array( '%d' )
+			array(
+				'id' => $id,
+				'status' => 'pending',
+			),
+			array('%s', '%s'),
+			array('%d', '%s')
 		);
 
-		return false !== $result;
+		return 1 === $result;
 	}
 
 	/**
@@ -159,13 +171,14 @@ class A7_Withdrawal_DB {
 	 * @param string $token Token potwierdzający.
 	 * @return object|null
 	 */
-	public function get_by_token( string $token ): ?object {
+	public function get_by_token(string $token): ?object
+	{
 		global $wpdb;
 
 		$table = $this->get_table();
 		// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 		return $wpdb->get_row(
-			$wpdb->prepare( "SELECT * FROM {$table} WHERE token = %s LIMIT 1", $token )
+			$wpdb->prepare("SELECT * FROM {$table} WHERE token = %s LIMIT 1", $token)
 		);
 	}
 
@@ -175,13 +188,14 @@ class A7_Withdrawal_DB {
 	 * @param int $order_id ID zamówienia.
 	 * @return object|null
 	 */
-	public function get_by_order( int $order_id ): ?object {
+	public function get_by_order(int $order_id): ?object
+	{
 		global $wpdb;
 
 		$table = $this->get_table();
 		// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 		return $wpdb->get_row(
-			$wpdb->prepare( "SELECT * FROM {$table} WHERE order_id = %d ORDER BY id DESC LIMIT 1", $order_id )
+			$wpdb->prepare("SELECT * FROM {$table} WHERE order_id = %d ORDER BY id DESC LIMIT 1", $order_id)
 		);
 	}
 
@@ -191,58 +205,59 @@ class A7_Withdrawal_DB {
 	 * @param array $args Argumenty zapytania.
 	 * @return array{items: array, total: int}
 	 */
-	public function get_list( array $args = array() ): array {
+	public function get_list(array $args = array()): array
+	{
 		global $wpdb;
 
 		$defaults = array(
-			'status'   => '',
-			'search'   => '',
+			'status' => '',
+			'search' => '',
 			'per_page' => 20,
-			'page'     => 1,
-			'orderby'  => 'created_at',
-			'order'    => 'DESC',
+			'page' => 1,
+			'orderby' => 'created_at',
+			'order' => 'DESC',
 		);
 
-		$args   = wp_parse_args( $args, $defaults );
-		$table  = $this->get_table();
-		$where  = array();
+		$args = wp_parse_args($args, $defaults);
+		$table = $this->get_table();
+		$where = array();
 		$values = array();
 
-		if ( ! empty( $args['status'] ) ) {
-			$where[]  = 'status = %s';
+		if (!empty($args['status'])) {
+			$where[] = 'status = %s';
 			$values[] = $args['status'];
 		}
 
-		if ( ! empty( $args['search'] ) ) {
-			$where[]  = '(customer_email LIKE %s OR customer_name LIKE %s OR order_id = %d)';
-			$like     = '%' . $wpdb->esc_like( $args['search'] ) . '%';
+		if (!empty($args['search'])) {
+			$where[] = '(customer_email LIKE %s OR customer_name LIKE %s OR order_id = %d)';
+			$like = '%' . $wpdb->esc_like($args['search']) . '%';
 			$values[] = $like;
 			$values[] = $like;
 			$values[] = (int) $args['search'];
 		}
 
-		$where_sql = $where ? 'WHERE ' . implode( ' AND ', $where ) : '';
+		$where_sql = $where ? 'WHERE ' . implode(' AND ', $where) : '';
 
 		// Bezpieczna lista kolumn dla ORDER BY
-		$allowed_orderby = array( 'id', 'order_id', 'customer_email', 'status', 'created_at', 'confirmed_at' );
-		$orderby         = in_array( $args['orderby'], $allowed_orderby, true ) ? $args['orderby'] : 'created_at';
-		$order           = 'ASC' === strtoupper( $args['order'] ) ? 'ASC' : 'DESC';
+		$allowed_orderby = array('id', 'order_id', 'customer_email', 'status', 'created_at', 'confirmed_at');
+		$orderby = in_array($args['orderby'], $allowed_orderby, true) ? $args['orderby'] : 'created_at';
+		$order = 'ASC' === strtoupper($args['order']) ? 'ASC' : 'DESC';
 
-		$offset = ( (int) $args['page'] - 1 ) * (int) $args['per_page'];
+		$offset = ((int) $args['page'] - 1) * (int) $args['per_page'];
 
 		// Całkowita liczba rekordów
 		$count_sql = "SELECT COUNT(*) FROM {$table} {$where_sql}";
-		$total     = (int) ( $values
-			? $wpdb->get_var( $wpdb->prepare( $count_sql, $values ) ) // phpcs:ignore
-			: $wpdb->get_var( $count_sql ) ); // phpcs:ignore
+		$total = (int) ($values
+			? $wpdb->get_var($wpdb->prepare($count_sql, $values)) // phpcs:ignore
+			: $wpdb->get_var($count_sql)); // phpcs:ignore
 
 		// Rekordy
-		$data_sql   = "SELECT * FROM {$table} {$where_sql} ORDER BY {$orderby} {$order} LIMIT %d OFFSET %d";
-		$all_values = array_merge( $values, array( (int) $args['per_page'], $offset ) );
-		$items = $wpdb->get_results( $wpdb->prepare( $data_sql, $all_values ) ); // phpcs:ignore
+		$data_sql = "SELECT * FROM {$table} {$where_sql} ORDER BY {$orderby} {$order} LIMIT %d OFFSET %d";
+		$all_values = array_merge($values, array((int) $args['per_page'], $offset));
+		$items = $wpdb->get_results($wpdb->prepare($data_sql, $all_values)); // phpcs:ignore
 
 		return array(
-			'items' => $items ?: array(),
+			'items' => $items ? $items : array(),
 			'total' => $total,
 		);
 	}
@@ -253,33 +268,39 @@ class A7_Withdrawal_DB {
 	 * @param int $id ID wniosku.
 	 * @return object|null
 	 */
-	public function get( int $id ): ?object {
+	public function get(int $id): ?object
+	{
 		global $wpdb;
 
 		$table = $this->get_table();
 		// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 		return $wpdb->get_row(
-			$wpdb->prepare( "SELECT * FROM {$table} WHERE id = %d LIMIT 1", $id )
+			$wpdb->prepare("SELECT * FROM {$table} WHERE id = %d LIMIT 1", $id)
 		);
 	}
 
 	/**
 	 * Sprawdza czy istnieje potwierdzony wniosek dla danego zamówienia.
 	 *
-	 * @param int $order_id ID zamówienia.
+	 * @param int $order_id               ID zamówienia.
+	 * @param int $ignored_withdrawal_id ID wniosku pomijanego podczas sprawdzania.
 	 * @return bool
 	 */
-	public function order_has_withdrawal( int $order_id ): bool {
+	public function order_has_withdrawal(int $order_id, int $ignored_withdrawal_id = 0): bool
+	{
 		global $wpdb;
 
 		$table = $this->get_table();
 		// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
-		$count = $wpdb->get_var(
-			$wpdb->prepare(
-				"SELECT COUNT(*) FROM {$table} WHERE order_id = %d AND status IN ('pending','confirmed')",
-				$order_id
-			)
-		);
+		$sql = "SELECT COUNT(*) FROM {$table} WHERE order_id = %d AND status IN ('pending','confirmed')";
+		$values = array($order_id);
+
+		if ($ignored_withdrawal_id > 0) {
+			$sql .= ' AND id != %d';
+			$values[] = $ignored_withdrawal_id;
+		}
+
+		$count = $wpdb->get_var($wpdb->prepare($sql, $values)); // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared
 
 		return (int) $count > 0;
 	}
@@ -290,7 +311,8 @@ class A7_Withdrawal_DB {
 	 * @param int $hours Liczba godzin.
 	 * @return int Liczba usuniętych rekordów.
 	 */
-	public function cleanup_expired_pending( int $hours = 24 ): int {
+	public function cleanup_expired_pending(int $hours = 24): int
+	{
 		global $wpdb;
 
 		$table = $this->get_table();
@@ -299,6 +321,25 @@ class A7_Withdrawal_DB {
 			$wpdb->prepare(
 				"DELETE FROM {$table} WHERE status = 'pending' AND created_at < DATE_SUB(NOW(), INTERVAL %d HOUR)",
 				$hours
+			)
+		);
+	}
+
+	/**
+	 * Usuwa potwierdzone wnioski po zakończeniu okresu retencji.
+	 *
+	 * @param int $months Liczba miesięcy retencji.
+	 * @return int Liczba usuniętych rekordów.
+	 */
+	public function cleanup_expired_confirmed(int $months = 24): int
+	{
+		global $wpdb;
+
+		$table = $this->get_table();
+		return (int) $wpdb->query(
+			$wpdb->prepare(
+				"DELETE FROM {$table} WHERE status = 'confirmed' AND confirmed_at < DATE_SUB(NOW(), INTERVAL %d MONTH)",
+				max(1, $months)
 			)
 		);
 	}

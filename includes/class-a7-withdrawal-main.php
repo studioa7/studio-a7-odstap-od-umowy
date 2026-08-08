@@ -17,6 +17,7 @@ defined( 'ABSPATH' ) || exit;
  */
 class A7_Withdrawal_Main {
 
+
 	/** @var A7_Withdrawal_Main|null */
 	private static ?A7_Withdrawal_Main $instance = null;
 
@@ -50,19 +51,9 @@ class A7_Withdrawal_Main {
 
 		// AJAX – krok 1 (formularz)
 		add_action( 'wp_ajax_a7w_step1', array( $this, 'ajax_step1' ) );
-		add_action( 'wp_ajax_nopriv_a7w_step1', array( $this, 'ajax_step1' ) );
 
 		// AJAX – krok 2 (potwierdzenie)
 		add_action( 'wp_ajax_a7w_step2', array( $this, 'ajax_step2' ) );
-		add_action( 'wp_ajax_nopriv_a7w_step2', array( $this, 'ajax_step2' ) );
-
-		// AJAX – pobierz HTML formularza kroku 1
-		add_action( 'wp_ajax_a7w_get_form', array( $this, 'ajax_get_form' ) );
-		add_action( 'wp_ajax_nopriv_a7w_get_form', array( $this, 'ajax_get_form' ) );
-
-		// AJAX – generuj nonce dla kroku 2
-		add_action( 'wp_ajax_a7w_get_nonce2', array( $this, 'ajax_get_nonce2' ) );
-		add_action( 'wp_ajax_nopriv_a7w_get_nonce2', array( $this, 'ajax_get_nonce2' ) );
 
 		// Cleanup starych wniosków (cron)
 		add_action( 'a7w_cleanup_pending', array( $this, 'cleanup_pending_withdrawals' ) );
@@ -205,7 +196,7 @@ class A7_Withdrawal_Main {
 	 * AJAX: Przetworzenie kroku 1 (formularz).
 	 */
 	public function ajax_step1(): void {
-		$result = $this->handler->process_step1( $_POST ); // phpcs:ignore
+		$result = $this->handler->process_step1($_POST); // phpcs:ignore
 		wp_send_json( $result );
 	}
 
@@ -213,59 +204,8 @@ class A7_Withdrawal_Main {
 	 * AJAX: Przetworzenie kroku 2 (potwierdzenie).
 	 */
 	public function ajax_step2(): void {
-		$result = $this->handler->process_step2( $_POST ); // phpcs:ignore
+		$result = $this->handler->process_step2($_POST); // phpcs:ignore
 		wp_send_json( $result );
-	}
-
-	/**
-	 * AJAX: Zwróć nonce dla kroku 2 (token-specific).
-	 */
-	public function ajax_get_nonce2(): void {
-		$token = sanitize_text_field( $_POST['token'] ?? '' ); // phpcs:ignore
-
-		if ( empty( $token ) ) {
-			wp_send_json_error( array( 'message' => __( 'Brak tokena.', 'studio-a7-odstap' ) ) );
-		}
-
-		// Sprawdź czy token istnieje w bazie
-		$withdrawal = A7_Withdrawal_DB::get_instance()->get_by_token( $token );
-		if ( ! $withdrawal || 'pending' !== $withdrawal->status ) {
-			wp_send_json_error( array( 'message' => __( 'Nieprawidłowy token.', 'studio-a7-odstap' ) ) );
-		}
-
-		wp_send_json(
-			array(
-				'nonce' => wp_create_nonce( 'a7w_step2_' . $token ),
-			)
-		);
-	}
-
-	/**
-	 * AJAX: Zwróć HTML formularza krok 1 dla danego zamówienia.
-	 */
-	public function ajax_get_form(): void {
-		$order_id = absint( $_POST['order_id'] ?? 0 ); // phpcs:ignore
-
-		if ( ! wp_verify_nonce( $_POST['_wpnonce'] ?? '', 'a7w_get_form_' . $order_id ) ) { // phpcs:ignore
-			wp_send_json_error( array( 'message' => __( 'Błąd bezpieczeństwa.', 'studio-a7-odstap' ) ) );
-		}
-
-		$order = wc_get_order( $order_id );
-		if ( ! $order ) {
-			wp_send_json_error( array( 'message' => __( 'Nie znaleziono zamówienia.', 'studio-a7-odstap' ) ) );
-		}
-
-		ob_start();
-		$this->load_view(
-			'step1-form.php',
-			array(
-				'order'  => $order,
-				'nonce1' => wp_create_nonce( 'a7w_step1_' . $order_id ),
-			)
-		);
-		$html = ob_get_clean();
-
-		wp_send_json_success( array( 'html' => $html ) );
 	}
 
 	// =========================================================================
@@ -274,6 +214,9 @@ class A7_Withdrawal_Main {
 
 	public function cleanup_pending_withdrawals(): void {
 		A7_Withdrawal_DB::get_instance()->cleanup_expired_pending( 24 );
+		A7_Withdrawal_DB::get_instance()->cleanup_expired_confirmed(
+			max( 1, absint( get_option( 'a7w_retention_months', 24 ) ) )
+		);
 	}
 
 	// =========================================================================
@@ -287,7 +230,7 @@ class A7_Withdrawal_Main {
 	 * @param array  $vars      Zmienne dostępne w widoku.
 	 */
 	private function load_view( string $view_file, array $vars = array() ): void {
-		extract( $vars, EXTR_SKIP ); // phpcs:ignore
+		extract($vars, EXTR_SKIP); // phpcs:ignore
 		$path = A7W_PLUGIN_DIR . 'public/views/' . $view_file;
 		if ( file_exists( $path ) ) {
 			include $path;
