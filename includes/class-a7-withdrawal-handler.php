@@ -20,6 +20,8 @@ defined('ABSPATH') || exit;
 class A7_Withdrawal_Handler
 {
 
+	private const GUEST_SESSION_COOKIE = 'a7w_guest_withdrawal';
+	private const GUEST_SESSION_TTL = 900;
 
 	/** @var A7_Withdrawal_DB */
 	private A7_Withdrawal_DB $db;
@@ -88,15 +90,147 @@ class A7_Withdrawal_Handler
 			return $exclusion_check;
 		}
 
-		// 4. Tylko uwierzytelniony właściciel zamówienia może złożyć oświadczenie.
+		// 4. Tylko uwierzytelniony właściciel lub zweryfikowany gość może złożyć oświadczenie.
 		$current_user_id = get_current_user_id();
 		$order_user_id = (int) $order->get_customer_id();
 
-		if ($current_user_id <= 0 || $order_user_id <= 0 || $current_user_id !== $order_user_id) {
+		if ($order_user_id > 0 && $current_user_id === $order_user_id) {
+			return true;
+		}
+
+		if (0 === $order_user_id && $this->has_guest_session($order->get_id())) {
+			return true;
+		}
+
+		if ($order_user_id > 0) {
 			return new \WP_Error('not_owner', __('Brak dostępu do tego zamówienia.', 'studio-a7-odstap'));
 		}
 
-		return true;
+		return new \WP_Error('guest_not_authorized', __('Zweryfikuj dane zamówienia, aby uzyskać dostęp do formularza.', 'studio-a7-odstap'));
+	}
+
+	/**
+	 * Creates a short-lived server-side authorization session for a guest order.
+	 *
+	 * The raw bearer token is retained only in an HttpOnly cookie. The transient
+	 * stores a keyed digest and order ID, so neither the order key nor the raw
+	 * session token is exposed in the withdrawal AJAX requests.
+	 *
+	 * @param int $order_id WooCommerce order ID.
+	 * @return bool Whether the session cookie was set successfully.
+	 */
+	public function mint_guest_session(int $order_id): bool
+	{
+		$token = wp_generate_password(64, false, false);
+		$expires = time() + self::GUEST_SESSION_TTL;
+		$transient_key = $this->get_guest_session_transient_key($token);
+
+		set_transient(
+			$transient_key,
+			array(
+				'order_id' => $order_id,
+				'expires' => $expires,
+			),
+			self::GUEST_SESSION_TTL
+		);
+
+		$set = setcookie(
+			self::GUEST_SESSION_COOKIE,
+			$token,
+			array(
+				'expires' => $expires,
+				'path' => defined('COOKIEPATH') && COOKIEPATH ? COOKIEPATH : '/',
+				'domain' => defined('COOKIE_DOMAIN') ? COOKIE_DOMAIN : '',
+				'secure' => is_ssl(),
+				'httponly' => true,
+				'samesite' => 'Lax',
+			)
+		);
+
+		if (!$set) {
+			delete_transient($transient_key);
+		}
+
+		return $set;
+	}
+
+	/**
+	 * Invalidates the guest authorization session after a completed withdrawal.
+	 */
+	private function revoke_guest_session(): void
+	{
+		$token = $this->get_guest_session_token();
+		if ('' !== $token) {
+			delete_transient($this->get_guest_session_transient_key($token));
+		}
+
+		setcookie(
+			self::GUEST_SESSION_COOKIE,
+			'',
+			array(
+				'expires' => time() - HOUR_IN_SECONDS,
+				'path' => defined('COOKIEPATH') && COOKIEPATH ? COOKIEPATH : '/',
+				'domain' => defined('COOKIE_DOMAIN') ? COOKIE_DOMAIN : '',
+				'secure' => is_ssl(),
+				'httponly' => true,
+				'samesite' => 'Lax',
+			)
+		);
+	}
+
+	/**
+	 * Checks whether the current request has a valid guest session for an order.
+	 *
+	 * @param int $order_id WooCommerce order ID.
+	 * @return bool
+	 */
+	private function has_guest_session(int $order_id): bool
+	{
+		return $order_id === $this->get_guest_session_order_id();
+	}
+
+	/**
+	 * Gets the order authorized by the current valid guest session.
+	 *
+	 * @return int Zero when the cookie is absent, invalid, or expired.
+	 */
+	public function get_guest_session_order_id(): int
+	{
+		$token = $this->get_guest_session_token();
+		if ('' === $token) {
+			return 0;
+		}
+
+		$session = get_transient($this->get_guest_session_transient_key($token));
+		if (!is_array($session) || !isset($session['order_id'], $session['expires']) || time() >= (int) $session['expires']) {
+			return 0;
+		}
+
+		return absint($session['order_id']);
+	}
+
+	/**
+	 * Gets the untrusted raw guest session token from the HttpOnly cookie.
+	 */
+	private function get_guest_session_token(): string
+	{
+		if (empty($_COOKIE[self::GUEST_SESSION_COOKIE])) { // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized
+			return '';
+		}
+
+		$token = sanitize_text_field(wp_unslash($_COOKIE[self::GUEST_SESSION_COOKIE])); // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized
+		return preg_match('/^[A-Za-z0-9]{64}$/', $token) ? $token : '';
+	}
+
+	/**
+	 * Builds the transient key without retaining a bearer token in storage.
+	 *
+	 * @param string $token Raw session token.
+	 * @return string
+	 */
+	private function get_guest_session_transient_key(string $token): string
+	{
+		return 'a7w_guest_' . hash_hmac('sha256', $token, wp_salt('auth'));
 	}
 
 	/**
@@ -359,6 +493,9 @@ class A7_Withdrawal_Handler
 		// Pobierz zaktualizowany rekord
 		$withdrawal = $this->db->get((int) $withdrawal->id);
 		$order = wc_get_order((int) $withdrawal->order_id);
+		if ($order instanceof \WC_Order && 0 === (int) $order->get_customer_id()) {
+			$this->revoke_guest_session();
+		}
 
 		// Dodaj notatkę do zamówienia
 		if ($order) {

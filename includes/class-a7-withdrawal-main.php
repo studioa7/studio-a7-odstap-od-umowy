@@ -55,9 +55,14 @@ class A7_Withdrawal_Main
 
 		// AJAX – krok 1 (formularz)
 		add_action('wp_ajax_a7w_step1', array($this, 'ajax_step1'));
+		add_action('wp_ajax_nopriv_a7w_step1', array($this, 'ajax_step1'));
 
 		// AJAX – krok 2 (potwierdzenie)
 		add_action('wp_ajax_a7w_step2', array($this, 'ajax_step2'));
+		add_action('wp_ajax_nopriv_a7w_step2', array($this, 'ajax_step2'));
+
+		add_shortcode('a7w_guest_withdrawal', array($this, 'render_guest_withdrawal_shortcode'));
+		add_action('template_redirect', array($this, 'process_guest_lookup'), 1);
 
 		// Cleanup starych wniosków (cron)
 		add_action('a7w_cleanup_pending', array($this, 'cleanup_pending_withdrawals'));
@@ -72,10 +77,20 @@ class A7_Withdrawal_Main
 
 	public function enqueue_assets(): void
 	{
-		if (!is_account_page() && !is_wc_endpoint_url('view-order')) {
+		$post_id = get_queried_object_id();
+		$has_guest_shortcode = $post_id > 0 && has_shortcode((string) get_post_field('post_content', $post_id), 'a7w_guest_withdrawal');
+		if (!is_account_page() && !is_wc_endpoint_url('view-order') && !$has_guest_shortcode) {
 			return;
 		}
 
+		$this->enqueue_public_assets();
+	}
+
+	/**
+	 * Enqueues frontend assets used by both account pages and the guest shortcode.
+	 */
+	private function enqueue_public_assets(): void
+	{
 		wp_enqueue_style(
 			'a7w-public',
 			A7W_PLUGIN_URL . 'public/css/public.css',
@@ -103,6 +118,124 @@ class A7_Withdrawal_Main
 				),
 			)
 		);
+	}
+
+	// =========================================================================
+	// Publiczny shortcode dla zamówień gości
+	// =========================================================================
+
+	/**
+	 * Verifies a guest lookup before page output, then sets the HttpOnly cookie.
+	 *
+	 * Running on template_redirect makes the Set-Cookie header reliable and the
+	 * redirect removes the submitted order key from the request lifecycle.
+	 */
+	public function process_guest_lookup(): void
+	{
+		if (is_admin() || 'POST' !== ($_SERVER['REQUEST_METHOD'] ?? '') || !isset($_POST['a7w_guest_lookup'])) { // phpcs:ignore WordPress.Security.NonceVerification.Missing
+			return;
+		}
+
+		$post_id = get_queried_object_id();
+		if ($post_id <= 0 || !has_shortcode((string) get_post_field('post_content', $post_id), 'a7w_guest_withdrawal')) {
+			return;
+		}
+
+		$lookup = wp_unslash($_POST); // phpcs:ignore WordPress.Security.NonceVerification.Missing
+		$nonce = isset($lookup['_wpnonce']) ? sanitize_text_field($lookup['_wpnonce']) : '';
+		$order_number = isset($lookup['order_number']) ? sanitize_text_field($lookup['order_number']) : '';
+		$email = isset($lookup['billing_email']) ? sanitize_email($lookup['billing_email']) : '';
+		$order_key = isset($lookup['order_key']) ? sanitize_text_field($lookup['order_key']) : '';
+		$error = 'invalid';
+
+		if (wp_verify_nonce($nonce, 'a7w_guest_lookup') && '' !== $order_number && is_email($email) && '' !== $order_key && function_exists('wc_get_order_id_by_order_key')) {
+			$order_id = absint(wc_get_order_id_by_order_key($order_key));
+			$order = $order_id ? wc_get_order($order_id) : false;
+			$verified = $order instanceof \WC_Order
+				&& 0 === (int) $order->get_customer_id()
+				&& hash_equals((string) $order->get_order_key(), $order_key)
+				&& hash_equals((string) $order->get_order_number(), trim($order_number))
+				&& hash_equals(strtolower((string) $order->get_billing_email()), strtolower($email));
+
+			if ($verified && $this->handler->mint_guest_session($order->get_id())) {
+				wp_safe_redirect(add_query_arg('a7w_guest', '1', remove_query_arg(array('a7w_guest', 'a7w_guest_error'))));
+				exit;
+			}
+		}
+
+		wp_safe_redirect(add_query_arg('a7w_guest_error', $error, remove_query_arg(array('a7w_guest', 'a7w_guest_error'))));
+		exit;
+	}
+
+	/**
+	 * Renders the guest withdrawal lookup form and the authorized modal.
+	 *
+	 * The order key is accepted only by the initial nonced form post. On a
+	 * successful lookup it is never rendered or sent by either AJAX step.
+	 *
+	 * @return string
+	 */
+	public function render_guest_withdrawal_shortcode(): string
+	{
+		$this->enqueue_public_assets();
+		$error = isset($_GET['a7w_guest_error']) ? __('Nie udało się zweryfikować danych zamówienia.', 'studio-a7-odstap') : '';
+		$order_id = $this->handler->get_guest_session_order_id();
+		$order = $order_id ? wc_get_order($order_id) : false;
+
+		ob_start();
+		?>
+		<div class="a7w-guest-withdrawal">
+			<?php if (!$order): ?>
+				<form class="a7w-form" method="post" novalidate>
+					<?php wp_nonce_field('a7w_guest_lookup'); ?>
+					<input type="hidden" name="a7w_guest_lookup" value="1">
+					<h2><?php esc_html_e('Odstąpienie od umowy', 'studio-a7-odstap'); ?></h2>
+					<p><?php esc_html_e('Podaj dane z potwierdzenia zamówienia, aby przejść do formularza.', 'studio-a7-odstap'); ?>
+					</p>
+					<div class="a7w-form__group">
+						<label class="a7w-form__label"
+							for="a7w-guest-order-number"><?php esc_html_e('Numer zamówienia', 'studio-a7-odstap'); ?></label>
+						<input class="a7w-form__input" id="a7w-guest-order-number" name="order_number" type="text" required
+							autocomplete="off">
+					</div>
+					<div class="a7w-form__group">
+						<label class="a7w-form__label"
+							for="a7w-guest-email"><?php esc_html_e('Adres e-mail rozliczeniowy', 'studio-a7-odstap'); ?></label>
+						<input class="a7w-form__input" id="a7w-guest-email" name="billing_email" type="email" required
+							autocomplete="email">
+					</div>
+					<div class="a7w-form__group">
+						<label class="a7w-form__label"
+							for="a7w-guest-order-key"><?php esc_html_e('Klucz zamówienia', 'studio-a7-odstap'); ?></label>
+						<input class="a7w-form__input" id="a7w-guest-order-key" name="order_key" type="password" required
+							autocomplete="off">
+					</div>
+					<?php if ('' !== $error): ?>
+						<div class="a7w-form__error" role="alert"><?php echo esc_html($error); ?></div>
+					<?php endif; ?>
+					<button class="a7w-btn a7w-btn--primary"
+						type="submit"><?php esc_html_e('Zweryfikuj i przejdź dalej', 'studio-a7-odstap'); ?></button>
+				</form>
+			<?php else: ?>
+				<?php
+				$can = $this->handler->can_withdraw($order);
+				if (true === $can) {
+					?>
+					<button type="button" class="a7w-btn a7w-btn--primary a7w-open-modal"
+						data-order-id="<?php echo esc_attr($order->get_id()); ?>">
+						<?php esc_html_e('Odstąp od umowy tutaj', 'studio-a7-odstap'); ?>
+					</button>
+					<?php $this->render_modal($order); ?>
+					<?php
+				} else {
+					echo '<div class="a7w-form__error" role="alert">' . esc_html($can->get_error_message()) . '</div>';
+				}
+				?>
+			<?php endif; ?>
+		</div>
+		<?php
+
+		return (string) ob_get_clean();
 	}
 
 	// =========================================================================

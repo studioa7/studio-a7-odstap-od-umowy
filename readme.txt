@@ -19,6 +19,7 @@ dwuetapowe złożenie oświadczenia i trwałe potwierdzenie e-mail.
 = Kluczowe funkcje =
 
 * **Przycisk w panelu klienta** – widoczny na liście zamówień i na stronie szczegółów
+* **Dostęp dla gości** – bezpieczny shortcode dla klientów składających zamówienie bez konta
 * **Dwuetapowy proces** – formularz + potwierdzenie (wymóg dyrektywy UE)
 * **Email potwierdzający** – wysyłany natychmiast z datą i godziną złożenia oświadczenia (trwały nośnik)
 * **Powiadomienie admina** – email do obsługi klienta o nowym wniosku
@@ -43,6 +44,7 @@ Wtyczka stworzona przez [Studio A7] (https://studioa7.pl) – agencja wspierają
 2. Aktywuj wtyczkę w panelu **Wtyczki → Zainstalowane wtyczki**
 3. Przejdź do **WooCommerce → Odstąp – Ustawienia** aby skonfigurować
 4. Sprawdź emaile w **WooCommerce → Ustawienia → Email**
+5. Aby obsłużyć zamówienia gościnne, utwórz publiczną stronę „Odstąp od umowy tutaj” i wstaw shortcode `[a7w_guest_withdrawal]`. Klient podaje numer zamówienia, e-mail rozliczeniowy i klucz zamówienia z potwierdzenia zakupu. Po weryfikacji dostęp jest ograniczony do 15 minut i klucz zamówienia nie jest już przesyłany.
 
 == Często zadawane pytania ==
 
@@ -58,6 +60,10 @@ oraz całe kategorie produktów (np. „Towary szyte na miarę", „Żywność")
 = Czy wtyczka działa z HPOS? =
 
 Tak. Wtyczka jest zgodna z High-Performance Order Storage (Custom Order Tables) WooCommerce.
+
+= Jak klient-gość może złożyć oświadczenie? =
+
+Utwórz stronę z shortcode `[a7w_guest_withdrawal]`. Formularz weryfikuje numer zamówienia, e-mail rozliczeniowy, klucz zamówienia i nonce. Następnie przyznaje krótkotrwałą sesję HttpOnly tylko dla danego zamówienia; klucz zamówienia nie jest obecny w kolejnych żądaniach.
 
 = Gdzie znajdę listę wszystkich wniosków? =
 

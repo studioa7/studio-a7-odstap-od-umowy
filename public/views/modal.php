@@ -49,7 +49,7 @@ $withdrawal_days = max(1, absint(get_option('a7w_withdrawal_days', 14)));
 								<input type="number" id="a7w-item-<?php echo esc_attr($item_id); ?>"
 									name="items[<?php echo esc_attr($item_id); ?>]" min="0"
 									max="<?php echo esc_attr($item->get_quantity()); ?>" value="0"
-									class="a7w-form__input">
+									form="a7w-form-step1-<?php echo esc_attr($order_id); ?>" class="a7w-form__input">
 							</label>
 						<?php endforeach; ?>
 					</fieldset>
