@@ -1,0 +1,8 @@
+/.agents
+/composer.json
+/composer.lock
+/composer.phar
+/php-bin
+/php.zip
+/phpcs.xml
+/phpstan.neon

@@ -1,0 +1,305 @@
+<?php
+/**
+ * Klasa zarządzania bazą danych.
+ *
+ * @package StudioA7_Withdrawal
+ */
+
+defined( 'ABSPATH' ) || exit;
+
+/**
+ * A7_Withdrawal_DB
+ *
+ * Zarządza tabelą `{prefix}_a7_withdrawals` przechowującą wnioski odstąpień.
+ */
+class A7_Withdrawal_DB {
+
+	/** @var A7_Withdrawal_DB|null Singleton instance */
+	private static ?A7_Withdrawal_DB $instance = null;
+
+	/** Nazwa tabeli (bez prefiksu) */
+	const TABLE = 'a7_withdrawals';
+
+	/**
+	 * Zwraca instancję singletona.
+	 */
+	public static function get_instance(): self {
+		if ( null === self::$instance ) {
+			self::$instance = new self();
+		}
+		return self::$instance;
+	}
+
+	private function __construct() {}
+
+	// -------------------------------------------------------------------------
+	// DDL – tworzenie tabeli
+	// -------------------------------------------------------------------------
+
+	/**
+	 * Tworzy lub aktualizuje tabelę w bazie danych.
+	 * Wywołane przy aktywacji wtyczki.
+	 */
+	public static function create_table(): void {
+		global $wpdb;
+
+		$table_name      = $wpdb->prefix . self::TABLE;
+		$charset_collate = $wpdb->get_charset_collate();
+
+		$sql = "CREATE TABLE {$table_name} (
+			id             BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+			order_id       BIGINT UNSIGNED NOT NULL,
+			customer_id    BIGINT UNSIGNED NOT NULL DEFAULT 0,
+			customer_email VARCHAR(200)    NOT NULL DEFAULT '',
+			customer_name  VARCHAR(200)    NOT NULL DEFAULT '',
+			reason         TEXT,
+			status         VARCHAR(50)     NOT NULL DEFAULT 'pending',
+			token          VARCHAR(64)     NOT NULL DEFAULT '',
+			ip_address     VARCHAR(45)     NOT NULL DEFAULT '',
+			user_agent     TEXT,
+			created_at     DATETIME        NOT NULL,
+			confirmed_at   DATETIME        DEFAULT NULL,
+			PRIMARY KEY  (id),
+			UNIQUE KEY   token    (token),
+			KEY          order_id (order_id),
+			KEY          status   (status)
+		) {$charset_collate};";
+
+		require_once ABSPATH . 'wp-admin/includes/upgrade.php';
+		dbDelta( $sql );
+
+		update_option( 'a7w_db_version', A7W_VERSION );
+	}
+
+	// -------------------------------------------------------------------------
+	// CRUD
+	// -------------------------------------------------------------------------
+
+	/**
+	 * Zwraca pełną nazwę tabeli (z prefiksem).
+	 */
+	public function get_table(): string {
+		global $wpdb;
+		return $wpdb->prefix . self::TABLE;
+	}
+
+	/**
+	 * Wstawia nowy wniosek (krok 1 – oczekujący na potwierdzenie).
+	 *
+	 * @param array $data Dane wniosku.
+	 * @return int|false ID wstawionego rekordu lub false przy błędzie.
+	 */
+	public function insert( array $data ): int|false {
+		global $wpdb;
+
+		$defaults = array(
+			'order_id'       => 0,
+			'customer_id'    => 0,
+			'customer_email' => '',
+			'customer_name'  => '',
+			'reason'         => '',
+			'status'         => 'pending',
+			'token'          => '',
+			'ip_address'     => '',
+			'user_agent'     => '',
+			'created_at'     => current_time( 'mysql' ),
+			'confirmed_at'   => null,
+		);
+
+		$data = wp_parse_args( $data, $defaults );
+
+		$result = $wpdb->insert(
+			$this->get_table(),
+			$data,
+			array(
+				'%d', // order_id
+				'%d', // customer_id
+				'%s', // customer_email
+				'%s', // customer_name
+				'%s', // reason
+				'%s', // status
+				'%s', // token
+				'%s', // ip_address
+				'%s', // user_agent
+				'%s', // created_at
+				'%s', // confirmed_at
+			)
+		);
+
+		return $result ? (int) $wpdb->insert_id : false;
+	}
+
+	/**
+	 * Aktualizuje status i datę potwierdzenia wniosku.
+	 *
+	 * @param int    $id     ID wniosku.
+	 * @param string $status Nowy status.
+	 * @return bool
+	 */
+	public function confirm( int $id, string $status = 'confirmed' ): bool {
+		global $wpdb;
+
+		$result = $wpdb->update(
+			$this->get_table(),
+			array(
+				'status'       => $status,
+				'confirmed_at' => current_time( 'mysql' ),
+			),
+			array( 'id' => $id ),
+			array( '%s', '%s' ),
+			array( '%d' )
+		);
+
+		return false !== $result;
+	}
+
+	/**
+	 * Pobiera wniosek po tokenie.
+	 *
+	 * @param string $token Token potwierdzający.
+	 * @return object|null
+	 */
+	public function get_by_token( string $token ): ?object {
+		global $wpdb;
+
+		$table = $this->get_table();
+		// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		return $wpdb->get_row(
+			$wpdb->prepare( "SELECT * FROM {$table} WHERE token = %s LIMIT 1", $token )
+		);
+	}
+
+	/**
+	 * Pobiera wniosek po ID zamówienia.
+	 *
+	 * @param int $order_id ID zamówienia.
+	 * @return object|null
+	 */
+	public function get_by_order( int $order_id ): ?object {
+		global $wpdb;
+
+		$table = $this->get_table();
+		// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		return $wpdb->get_row(
+			$wpdb->prepare( "SELECT * FROM {$table} WHERE order_id = %d ORDER BY id DESC LIMIT 1", $order_id )
+		);
+	}
+
+	/**
+	 * Pobiera listę wniosków z filtrowaniem i paginacją.
+	 *
+	 * @param array $args Argumenty zapytania.
+	 * @return array{items: array, total: int}
+	 */
+	public function get_list( array $args = array() ): array {
+		global $wpdb;
+
+		$defaults = array(
+			'status'   => '',
+			'search'   => '',
+			'per_page' => 20,
+			'page'     => 1,
+			'orderby'  => 'created_at',
+			'order'    => 'DESC',
+		);
+
+		$args   = wp_parse_args( $args, $defaults );
+		$table  = $this->get_table();
+		$where  = array();
+		$values = array();
+
+		if ( ! empty( $args['status'] ) ) {
+			$where[]  = 'status = %s';
+			$values[] = $args['status'];
+		}
+
+		if ( ! empty( $args['search'] ) ) {
+			$where[]  = '(customer_email LIKE %s OR customer_name LIKE %s OR order_id = %d)';
+			$like     = '%' . $wpdb->esc_like( $args['search'] ) . '%';
+			$values[] = $like;
+			$values[] = $like;
+			$values[] = (int) $args['search'];
+		}
+
+		$where_sql = $where ? 'WHERE ' . implode( ' AND ', $where ) : '';
+
+		// Bezpieczna lista kolumn dla ORDER BY
+		$allowed_orderby = array( 'id', 'order_id', 'customer_email', 'status', 'created_at', 'confirmed_at' );
+		$orderby         = in_array( $args['orderby'], $allowed_orderby, true ) ? $args['orderby'] : 'created_at';
+		$order           = 'ASC' === strtoupper( $args['order'] ) ? 'ASC' : 'DESC';
+
+		$offset = ( (int) $args['page'] - 1 ) * (int) $args['per_page'];
+
+		// Całkowita liczba rekordów
+		$count_sql = "SELECT COUNT(*) FROM {$table} {$where_sql}";
+		$total     = (int) ( $values
+			? $wpdb->get_var( $wpdb->prepare( $count_sql, $values ) ) // phpcs:ignore
+			: $wpdb->get_var( $count_sql ) ); // phpcs:ignore
+
+		// Rekordy
+		$data_sql   = "SELECT * FROM {$table} {$where_sql} ORDER BY {$orderby} {$order} LIMIT %d OFFSET %d";
+		$all_values = array_merge( $values, array( (int) $args['per_page'], $offset ) );
+		$items = $wpdb->get_results( $wpdb->prepare( $data_sql, $all_values ) ); // phpcs:ignore
+
+		return array(
+			'items' => $items ?: array(),
+			'total' => $total,
+		);
+	}
+
+	/**
+	 * Pobiera wniosek po ID.
+	 *
+	 * @param int $id ID wniosku.
+	 * @return object|null
+	 */
+	public function get( int $id ): ?object {
+		global $wpdb;
+
+		$table = $this->get_table();
+		// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		return $wpdb->get_row(
+			$wpdb->prepare( "SELECT * FROM {$table} WHERE id = %d LIMIT 1", $id )
+		);
+	}
+
+	/**
+	 * Sprawdza czy istnieje potwierdzony wniosek dla danego zamówienia.
+	 *
+	 * @param int $order_id ID zamówienia.
+	 * @return bool
+	 */
+	public function order_has_withdrawal( int $order_id ): bool {
+		global $wpdb;
+
+		$table = $this->get_table();
+		// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		$count = $wpdb->get_var(
+			$wpdb->prepare(
+				"SELECT COUNT(*) FROM {$table} WHERE order_id = %d AND status IN ('pending','confirmed')",
+				$order_id
+			)
+		);
+
+		return (int) $count > 0;
+	}
+
+	/**
+	 * Usuwa przestarzałe wnioski w statusie 'pending' starsze niż X godzin.
+	 *
+	 * @param int $hours Liczba godzin.
+	 * @return int Liczba usuniętych rekordów.
+	 */
+	public function cleanup_expired_pending( int $hours = 24 ): int {
+		global $wpdb;
+
+		$table = $this->get_table();
+		// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		return (int) $wpdb->query(
+			$wpdb->prepare(
+				"DELETE FROM {$table} WHERE status = 'pending' AND created_at < DATE_SUB(NOW(), INTERVAL %d HOUR)",
+				$hours
+			)
+		);
+	}
+}

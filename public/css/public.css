@@ -1,0 +1,680 @@
+/**
+ * Studio A7 – Odstąp od umowy
+ * Style frontendu – panel klienta WooCommerce
+ *
+ * @version 1.0.0
+ */
+
+/* =========================================================================
+	Zmienne i reset
+	========================================================================= */
+:root {
+	--a7w-primary:        #1a56db;
+	--a7w-primary-dark:   #1447c0;
+	--a7w-primary-light:  #ebf0fe;
+	--a7w-danger:         #c81e1e;
+	--a7w-danger-dark:    #9b1c1c;
+	--a7w-danger-light:   #fde8e8;
+	--a7w-success:        #057a55;
+	--a7w-success-light:  #def7ec;
+	--a7w-warning:        #c27803;
+	--a7w-warning-light:  #fdf6b2;
+	--a7w-neutral-50:     #f9fafb;
+	--a7w-neutral-100:    #f3f4f6;
+	--a7w-neutral-200:    #e5e7eb;
+	--a7w-neutral-300:    #d1d5db;
+	--a7w-neutral-500:    #6b7280;
+	--a7w-neutral-700:    #374151;
+	--a7w-neutral-900:    #111827;
+	--a7w-border-radius:  10px;
+	--a7w-border-radius-sm: 6px;
+	--a7w-shadow:         0 4px 24px rgba(0, 0, 0, 0.12);
+	--a7w-shadow-sm:      0 1px 4px rgba(0, 0, 0, 0.08);
+	--a7w-transition:     all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+	--a7w-font:           -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+/* =========================================================================
+	Sekcja z przyciskiem (strona szczegółów zamówienia)
+	========================================================================= */
+.a7w-withdrawal-section {
+	margin: 24px 0;
+}
+
+.a7w-withdrawal-box {
+	display: flex;
+	align-items: center;
+	gap: 14px;
+	padding: 16px 20px;
+	border-radius: var(--a7w-border-radius);
+	border: 1px solid transparent;
+	font-family: var(--a7w-font);
+	flex-wrap: wrap;
+}
+
+/* Stan: aktywny (można odstąpić) */
+.a7w-withdrawal-box--active {
+	background-color: var(--a7w-primary-light);
+	border-color: #c3d0f5;
+}
+
+.a7w-withdrawal-box--active .a7w-withdrawal-icon {
+	color: var(--a7w-primary);
+}
+
+.a7w-withdrawal-box--active .a7w-withdrawal-title {
+	color: var(--a7w-primary-dark);
+	font-weight: 600;
+}
+
+/* Stan: już złożone */
+.a7w-withdrawal-box--done {
+	background-color: var(--a7w-success-light);
+	border-color: #a7f3d0;
+}
+
+.a7w-withdrawal-box--done .a7w-withdrawal-icon {
+	color: var(--a7w-success);
+}
+
+.a7w-withdrawal-box--done .a7w-withdrawal-title {
+	color: var(--a7w-success);
+	font-weight: 600;
+}
+
+/* Stan: wygasłe / niedostępne */
+.a7w-withdrawal-box--expired {
+	background-color: var(--a7w-neutral-100);
+	border-color: var(--a7w-neutral-200);
+}
+
+.a7w-withdrawal-box--expired .a7w-withdrawal-icon {
+	color: var(--a7w-neutral-500);
+}
+
+.a7w-withdrawal-box--expired .a7w-withdrawal-title {
+	color: var(--a7w-neutral-700);
+	font-weight: 600;
+}
+
+.a7w-withdrawal-icon {
+	flex-shrink: 0;
+	display: flex;
+	align-items: center;
+}
+
+.a7w-withdrawal-content {
+	flex: 1;
+	min-width: 0;
+}
+
+.a7w-withdrawal-title,
+.a7w-withdrawal-message {
+	margin: 0;
+	font-size: 14px;
+	line-height: 1.5;
+}
+
+.a7w-withdrawal-timer {
+	margin: 2px 0 0;
+	font-size: 12px;
+	color: var(--a7w-neutral-500);
+}
+
+.a7w-withdrawal-message {
+	color: var(--a7w-neutral-500);
+	margin-top: 2px;
+	font-size: 13px;
+}
+
+/* =========================================================================
+	Przycisk globalny
+	========================================================================= */
+.a7w-btn {
+	display: inline-flex;
+	align-items: center;
+	gap: 6px;
+	padding: 9px 18px;
+	border-radius: var(--a7w-border-radius-sm);
+	font-size: 13.5px;
+	font-weight: 600;
+	font-family: var(--a7w-font);
+	border: 2px solid transparent;
+	cursor: pointer;
+	text-decoration: none;
+	transition: var(--a7w-transition);
+	white-space: nowrap;
+	line-height: 1.4;
+}
+
+.a7w-btn:focus-visible {
+	outline: 2px solid var(--a7w-primary);
+	outline-offset: 2px;
+}
+
+.a7w-btn--primary {
+	background-color: var(--a7w-primary);
+	border-color: var(--a7w-primary);
+	color: #fff;
+}
+.a7w-btn--primary:hover {
+	background-color: var(--a7w-primary-dark);
+	border-color: var(--a7w-primary-dark);
+	color: #fff;
+	transform: translateY(-1px);
+	box-shadow: 0 4px 12px rgba(26, 86, 219, 0.35);
+}
+
+.a7w-btn--danger {
+	background-color: var(--a7w-danger);
+	border-color: var(--a7w-danger);
+	color: #fff;
+}
+.a7w-btn--danger:hover {
+	background-color: var(--a7w-danger-dark);
+	border-color: var(--a7w-danger-dark);
+	color: #fff;
+	transform: translateY(-1px);
+	box-shadow: 0 4px 12px rgba(200, 30, 30, 0.35);
+}
+
+.a7w-btn--ghost {
+	background-color: transparent;
+	border-color: var(--a7w-neutral-300);
+	color: var(--a7w-neutral-700);
+}
+.a7w-btn--ghost:hover {
+	background-color: var(--a7w-neutral-100);
+	border-color: var(--a7w-neutral-300);
+	color: var(--a7w-neutral-900);
+}
+
+.a7w-btn:disabled,
+.a7w-btn[disabled] {
+	opacity: 0.6;
+	cursor: not-allowed;
+	transform: none !important;
+	box-shadow: none !important;
+}
+
+/* =========================================================================
+	Overlay i modal
+	========================================================================= */
+.a7w-modal-overlay {
+	position: fixed;
+	inset: 0;
+	z-index: 999999;
+	background: rgba(0, 0, 0, 0.55);
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	padding: 16px;
+	backdrop-filter: blur(2px);
+	opacity: 0;
+	transition: opacity 0.25s ease;
+}
+
+.a7w-modal-overlay:not([hidden]) {
+	opacity: 1;
+}
+
+.a7w-modal-overlay[hidden] {
+	display: none !important;
+}
+
+.a7w-modal {
+	background: #fff;
+	border-radius: 14px;
+	box-shadow: 0 20px 60px rgba(0, 0, 0, 0.2);
+	width: 100%;
+	max-width: 520px;
+	max-height: 90vh;
+	overflow-y: auto;
+	transform: translateY(10px);
+	transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+	font-family: var(--a7w-font);
+	position: relative;
+}
+
+.a7w-modal-overlay:not([hidden]) .a7w-modal {
+	transform: translateY(0);
+}
+
+/* =========================================================================
+	Nagłówek modala
+	========================================================================= */
+.a7w-modal__header {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	padding: 20px 24px 16px;
+	border-bottom: 1px solid var(--a7w-neutral-200);
+}
+
+.a7w-modal__title-wrap {
+	display: flex;
+	align-items: center;
+	gap: 10px;
+}
+
+.a7w-modal__icon {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	width: 36px;
+	height: 36px;
+	background-color: var(--a7w-primary-light);
+	border-radius: 8px;
+	color: var(--a7w-primary);
+	flex-shrink: 0;
+}
+
+.a7w-modal__title {
+	margin: 0;
+	font-size: 17px;
+	font-weight: 700;
+	color: var(--a7w-neutral-900);
+	line-height: 1.3;
+}
+
+.a7w-modal__close {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	width: 32px;
+	height: 32px;
+	border: none;
+	background: var(--a7w-neutral-100);
+	border-radius: 50%;
+	color: var(--a7w-neutral-500);
+	cursor: pointer;
+	transition: var(--a7w-transition);
+	flex-shrink: 0;
+}
+.a7w-modal__close:hover {
+	background-color: var(--a7w-neutral-200);
+	color: var(--a7w-neutral-900);
+}
+
+/* =========================================================================
+	Wskaźnik kroków
+	========================================================================= */
+.a7w-steps {
+	display: flex;
+	align-items: center;
+	padding: 14px 24px;
+	background-color: var(--a7w-neutral-50);
+	border-bottom: 1px solid var(--a7w-neutral-200);
+}
+
+.a7w-step {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	opacity: 0.45;
+	transition: var(--a7w-transition);
+}
+
+.a7w-step--active,
+.a7w-step--done {
+	opacity: 1;
+}
+
+.a7w-step__num {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	width: 26px;
+	height: 26px;
+	border-radius: 50%;
+	font-size: 12px;
+	font-weight: 700;
+	background-color: var(--a7w-neutral-200);
+	color: var(--a7w-neutral-500);
+	flex-shrink: 0;
+	transition: var(--a7w-transition);
+}
+
+.a7w-step--active .a7w-step__num {
+	background-color: var(--a7w-primary);
+	color: #fff;
+}
+
+.a7w-step--done .a7w-step__num {
+	background-color: var(--a7w-success);
+	color: #fff;
+}
+
+.a7w-step__label {
+	font-size: 13px;
+	font-weight: 600;
+	color: var(--a7w-neutral-700);
+}
+
+.a7w-step--active .a7w-step__label {
+	color: var(--a7w-primary);
+}
+
+.a7w-step__connector {
+	flex: 1;
+	height: 2px;
+	background: var(--a7w-neutral-200);
+	margin: 0 12px;
+	border-radius: 2px;
+}
+
+/* =========================================================================
+	Treść modala
+	========================================================================= */
+.a7w-modal__body {
+	padding: 24px;
+}
+
+.a7w-modal__intro {
+	font-size: 14px;
+	color: var(--a7w-neutral-500);
+	line-height: 1.6;
+	margin: 0 0 20px;
+}
+
+/* =========================================================================
+	Formularz
+	========================================================================= */
+.a7w-form {
+	display: flex;
+	flex-direction: column;
+	gap: 16px;
+}
+
+.a7w-form__group {
+	display: flex;
+	flex-direction: column;
+	gap: 6px;
+}
+
+.a7w-form__label {
+	font-size: 13px;
+	font-weight: 600;
+	color: var(--a7w-neutral-700);
+	display: flex;
+	align-items: center;
+	gap: 4px;
+}
+
+.a7w-form__optional {
+	font-weight: 400;
+	color: var(--a7w-neutral-500);
+	font-size: 12px;
+}
+
+.a7w-form__input,
+.a7w-form__textarea {
+	width: 100%;
+	padding: 9px 12px;
+	border: 1.5px solid var(--a7w-neutral-300);
+	border-radius: var(--a7w-border-radius-sm);
+	font-size: 14px;
+	font-family: var(--a7w-font);
+	color: var(--a7w-neutral-900);
+	background-color: #fff;
+	transition: var(--a7w-transition);
+	box-sizing: border-box;
+	line-height: 1.5;
+}
+
+.a7w-form__input[readonly],
+.a7w-form__textarea[readonly] {
+	background-color: var(--a7w-neutral-50);
+	color: var(--a7w-neutral-500);
+	cursor: default;
+}
+
+.a7w-form__input:focus,
+.a7w-form__textarea:focus {
+	outline: none;
+	border-color: var(--a7w-primary);
+	box-shadow: 0 0 0 3px rgba(26, 86, 219, 0.1);
+}
+
+.a7w-form__textarea {
+	resize: vertical;
+	min-height: 80px;
+}
+
+/* Checkbox */
+.a7w-checkbox {
+	display: flex;
+	align-items: flex-start;
+	gap: 10px;
+	cursor: pointer;
+}
+
+.a7w-checkbox__input {
+	position: absolute;
+	opacity: 0;
+	width: 0;
+	height: 0;
+}
+
+.a7w-checkbox__box {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	width: 18px;
+	height: 18px;
+	border: 2px solid var(--a7w-neutral-300);
+	border-radius: 4px;
+	flex-shrink: 0;
+	margin-top: 1px;
+	transition: var(--a7w-transition);
+	background-color: #fff;
+}
+
+.a7w-checkbox__input:checked + .a7w-checkbox__box {
+	background-color: var(--a7w-primary);
+	border-color: var(--a7w-primary);
+}
+
+.a7w-checkbox__input:checked + .a7w-checkbox__box::after {
+	content: '';
+	display: block;
+	width: 4px;
+	height: 8px;
+	border: 2px solid #fff;
+	border-top: none;
+	border-left: none;
+	transform: rotate(45deg) translate(-1px, -1px);
+}
+
+.a7w-checkbox__input:focus-visible + .a7w-checkbox__box {
+	outline: 2px solid var(--a7w-primary);
+	outline-offset: 2px;
+}
+
+.a7w-checkbox__text {
+	font-size: 13px;
+	color: var(--a7w-neutral-700);
+	line-height: 1.5;
+}
+
+/* Błąd */
+.a7w-form__error {
+	padding: 10px 14px;
+	background-color: var(--a7w-danger-light);
+	border: 1px solid #f8b4b4;
+	border-radius: var(--a7w-border-radius-sm);
+	font-size: 13px;
+	color: var(--a7w-danger);
+	line-height: 1.5;
+}
+
+/* Przyciski formularza */
+.a7w-form__actions {
+	display: flex;
+	align-items: center;
+	justify-content: flex-end;
+	gap: 10px;
+	padding-top: 4px;
+	flex-wrap: wrap;
+}
+
+/* =========================================================================
+	Krok 2 – Potwierdzenie
+	========================================================================= */
+.a7w-confirm-box {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	text-align: center;
+	padding: 8px 0 20px;
+}
+
+.a7w-confirm-box__icon {
+	width: 64px;
+	height: 64px;
+	background-color: var(--a7w-warning-light);
+	border-radius: 50%;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	color: var(--a7w-warning);
+	margin-bottom: 16px;
+}
+
+.a7w-confirm-box__title {
+	font-size: 18px;
+	font-weight: 700;
+	color: var(--a7w-neutral-900);
+	margin: 0 0 10px;
+}
+
+.a7w-confirm-box__text {
+	font-size: 14px;
+	color: var(--a7w-neutral-500);
+	line-height: 1.65;
+	margin: 0 0 12px;
+	max-width: 380px;
+}
+
+.a7w-confirm-box__legal {
+	font-size: 12px;
+	color: var(--a7w-neutral-500);
+	line-height: 1.6;
+	margin: 0;
+	padding: 10px 14px;
+	background-color: var(--a7w-neutral-50);
+	border-radius: var(--a7w-border-radius-sm);
+	border: 1px solid var(--a7w-neutral-200);
+	width: 100%;
+	box-sizing: border-box;
+}
+
+/* =========================================================================
+	Stan sukcesu
+	========================================================================= */
+.a7w-success {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	text-align: center;
+	padding: 16px 0 8px;
+}
+
+.a7w-success__icon {
+	width: 80px;
+	height: 80px;
+	background-color: var(--a7w-success-light);
+	border-radius: 50%;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	color: var(--a7w-success);
+	margin-bottom: 20px;
+	animation: a7w-success-pop 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+@keyframes a7w-success-pop {
+	0%   { transform: scale(0.5); opacity: 0; }
+	100% { transform: scale(1);   opacity: 1; }
+}
+
+.a7w-success__title {
+	font-size: 20px;
+	font-weight: 700;
+	color: var(--a7w-neutral-900);
+	margin: 0 0 10px;
+}
+
+.a7w-success__text {
+	font-size: 14px;
+	color: var(--a7w-neutral-500);
+	line-height: 1.65;
+	margin: 0;
+	max-width: 380px;
+}
+
+/* =========================================================================
+	Spinner / ładowanie
+	========================================================================= */
+.a7w-modal__loading {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	gap: 12px;
+	padding: 32px 24px;
+	font-size: 14px;
+	color: var(--a7w-neutral-500);
+}
+
+.a7w-spinner {
+	width: 24px;
+	height: 24px;
+	border: 3px solid var(--a7w-neutral-200);
+	border-top-color: var(--a7w-primary);
+	border-radius: 50%;
+	animation: a7w-spin 0.75s linear infinite;
+	flex-shrink: 0;
+}
+
+@keyframes a7w-spin {
+	to { transform: rotate(360deg); }
+}
+
+/* =========================================================================
+	Przycisk w tabeli zamówień WooCommerce
+	========================================================================= */
+.a7w-open-modal.button {
+	font-size: 12px !important;
+	padding: 4px 10px !important;
+	white-space: nowrap;
+}
+
+/* =========================================================================
+	Responsywność
+	========================================================================= */
+@media (max-width: 480px) {
+	.a7w-modal {
+	border-radius: 12px 12px 0 0;
+	max-height: 92vh;
+	margin-bottom: 0;
+	}
+
+	.a7w-modal-overlay {
+	align-items: flex-end;
+	padding: 0;
+	}
+
+	.a7w-form__actions {
+	flex-direction: column-reverse;
+	}
+
+	.a7w-form__actions .a7w-btn {
+	width: 100%;
+	justify-content: center;
+	}
+
+	.a7w-withdrawal-box {
+	flex-direction: column;
+	align-items: flex-start;
+	}
+}
