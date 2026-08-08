@@ -126,7 +126,7 @@ class A7_Withdrawal_Main
 
 		$actions['a7w_withdraw'] = array(
 			'url' => '#a7w-modal-' . $order->get_id(),
-			'name' => esc_html(get_option('a7w_button_label', __('Odstąp od umowy', 'studio-a7-odstap'))),
+			'name' => esc_html(get_option('a7w_button_label', __('Odstąp od umowy tutaj', 'studio-a7-odstap'))),
 			'class' => 'a7w-open-modal button',
 			'attrs' => array(
 				'data-order-id' => $order->get_id(),

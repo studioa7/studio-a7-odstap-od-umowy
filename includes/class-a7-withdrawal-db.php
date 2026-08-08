@@ -63,16 +63,22 @@ class A7_Withdrawal_DB
 			token          VARCHAR(64)     NOT NULL DEFAULT '',
 			ip_address     VARCHAR(45)     NOT NULL DEFAULT '',
 			user_agent     TEXT,
+			item_quantities LONGTEXT,
 			created_at     DATETIME        NOT NULL,
 			confirmed_at   DATETIME        DEFAULT NULL,
 			PRIMARY KEY  (id),
 			UNIQUE KEY   token    (token),
-			UNIQUE KEY   order_id (order_id),
+			KEY          order_id (order_id),
 			KEY          status   (status)
 		) {$charset_collate};";
 
 		require_once ABSPATH . 'wp-admin/includes/upgrade.php';
 		dbDelta($sql);
+		// Wersje wcześniejsze tworzyły unikalny indeks, który blokował częściowe odstąpienia.
+		$indexes = $wpdb->get_results("SHOW INDEX FROM {$table_name} WHERE Key_name = 'order_id'"); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		if ($indexes && !empty($indexes[0]->Non_unique) === false) {
+			$wpdb->query("ALTER TABLE {$table_name} DROP INDEX order_id, ADD KEY order_id (order_id)"); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		}
 
 		update_option('a7w_db_version', A7W_VERSION);
 	}
@@ -110,6 +116,7 @@ class A7_Withdrawal_DB
 			'token' => '',
 			'ip_address' => '',
 			'user_agent' => '',
+			'item_quantities' => '',
 			'created_at' => current_time('mysql'),
 			'confirmed_at' => null,
 		);
@@ -129,6 +136,7 @@ class A7_Withdrawal_DB
 				'%s', // token
 				'%s', // ip_address
 				'%s', // user_agent
+				'%s', // item_quantities
 				'%s', // created_at
 				'%s', // confirmed_at
 			)
@@ -197,6 +205,34 @@ class A7_Withdrawal_DB
 		return $wpdb->get_row(
 			$wpdb->prepare("SELECT * FROM {$table} WHERE order_id = %d ORDER BY id DESC LIMIT 1", $order_id)
 		);
+	}
+
+	/**
+	 * Zwraca łączną liczbę potwierdzonych ilości dla pozycji zamówienia.
+	 *
+	 * @param int $order_id ID zamówienia.
+	 * @return array<int, int>
+	 */
+	public function get_confirmed_item_quantities(int $order_id): array
+	{
+		global $wpdb;
+
+		$table = $this->get_table();
+		$rows = $wpdb->get_col($wpdb->prepare("SELECT item_quantities FROM {$table} WHERE order_id = %d AND status = 'confirmed'", $order_id)); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		$quantities = array();
+
+		foreach ($rows as $row) {
+			$data = json_decode((string) $row, true);
+			if (!is_array($data)) {
+				continue;
+			}
+			foreach ($data as $item_id => $quantity) {
+				$item_id = absint($item_id);
+				$quantities[$item_id] = ($quantities[$item_id] ?? 0) + absint($quantity);
+			}
+		}
+
+		return $quantities;
 	}
 
 	/**

@@ -35,6 +35,25 @@ $withdrawal_days = max(1, absint(get_option('a7w_withdrawal_days', 14)));
 						<path d="M3 3v5h5" />
 					</svg>
 				</div>
+
+				<div class="a7w-form__group">
+					<fieldset>
+						<legend class="a7w-form__label"><?php esc_html_e('Zakres odstąpienia', 'studio-a7-odstap'); ?>
+						</legend>
+						<p class="a7w-form__optional">
+							<?php esc_html_e('Wybierz towary i ilości. Aby odstąpić od całego zamówienia, wybierz wszystkie pozycje w pełnej ilości.', 'studio-a7-odstap'); ?>
+						</p>
+						<?php foreach ($order->get_items() as $item_id => $item): ?>
+							<label class="a7w-form__label" for="a7w-item-<?php echo esc_attr($item_id); ?>">
+								<?php echo esc_html($item->get_name()); ?>
+								<input type="number" id="a7w-item-<?php echo esc_attr($item_id); ?>"
+									name="items[<?php echo esc_attr($item_id); ?>]" min="0"
+									max="<?php echo esc_attr($item->get_quantity()); ?>" value="0"
+									class="a7w-form__input">
+							</label>
+						<?php endforeach; ?>
+					</fieldset>
+				</div>
 				<h2 class="a7w-modal__title" id="a7w-modal-title-<?php echo esc_attr($order_id); ?>">
 					<?php esc_html_e('Odstąpienie od umowy', 'studio-a7-odstap'); ?>
 				</h2>
