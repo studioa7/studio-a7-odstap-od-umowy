@@ -4,7 +4,7 @@ Tags:              woocommerce, prawo odstąpienia od umowy, consumer rights, eu
 Requires at least: 6.0
 Tested up to:      6.8
 Requires PHP:      8.0
-Stable tag:        1.1.3
+Stable tag:        1.1.4
 License:           GPLv2 or later
 License URI:       https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -84,6 +84,10 @@ Tak. Treść i temat emaila edytujesz w **WooCommerce → Ustawienia → Email �
 7. Metabox w szczegółach zamówienia (admin)
 
 == Dziennik zmian ==
+
+= 1.1.4 =
+* Poprawiono układ wyboru pozycji w formularzu odstąpienia
+* Dodano jednoznaczne komunikaty walidacyjne dla akceptacji oświadczenia i wyboru towarów
 
 = 1.1.3 =
 * Bezpieczny dostęp gościa do formularza przez shortcode `[a7w_guest_withdrawal]`

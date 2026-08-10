@@ -142,7 +142,15 @@
 
 				// Walidacja frontendu
 				if (!$form.find('[name="consent"]').is(':checked')) {
-					showError($error, a7wData.i18n.error_generic || 'Zaznacz wymagane zgody.');
+					showError($error, 'Aby kontynuować, zaakceptuj oświadczenie o zapoznaniu się z warunkami odstąpienia.');
+					return;
+				}
+
+				const hasSelectedItems = $form.find('[name^="items["]').filter(function () {
+					return parseInt($(this).val(), 10) > 0;
+				}).length > 0;
+				if (!hasSelectedItems) {
+					showError($error, 'Wybierz co najmniej jeden towar i podaj ilość, której dotyczy odstąpienie.');
 					return;
 				}
 
