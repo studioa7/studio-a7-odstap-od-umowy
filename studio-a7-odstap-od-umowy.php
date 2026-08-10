@@ -3,7 +3,7 @@
  * Plugin Name:       Studio A7 – Odstąpienie od umowy for WooCommerce
  * Plugin URI:        https://studio-a7.pl
  * Description:       Narzędzie do obsługi oświadczeń o odstąpieniu od umowy dla sklepów korzystających z WooCommerce.
- * Version:           1.1.4
+ * Version:           2.0.0
  * Requires at least: 6.0
  * Requires PHP:      8.0
  * Author:            Studio A7
@@ -23,7 +23,7 @@ defined('ABSPATH') || exit;
 // -------------------------------------------------------------------------
 // Stałe wtyczki
 // -------------------------------------------------------------------------
-define('A7W_VERSION', '1.1.4');
+define('A7W_VERSION', '2.0.0');
 define('A7W_PLUGIN_FILE', __FILE__);
 define('A7W_PLUGIN_DIR', plugin_dir_path(__FILE__));
 define('A7W_PLUGIN_URL', plugin_dir_url(__FILE__));
@@ -136,6 +136,8 @@ function a7w_init(): void
 	// Ładowanie klas bez ryzyka fatal error dla niepełnej paczki wdrożeniowej.
 	$required_files = array(
 		'includes/class-a7-withdrawal-db.php',
+		'includes/class-a7-withdrawal-form-fields.php',
+		'includes/class-a7-withdrawal-rules.php',
 		'includes/class-a7-withdrawal-handler.php',
 		'includes/class-a7-withdrawal-email.php',
 		'includes/class-a7-withdrawal-admin.php',
@@ -193,6 +195,7 @@ function a7w_activate(): void
 		'require_reason' => 'no',
 		'notify_admin' => 'yes',
 		'retention_months' => 24,
+		'form_fields' => array(),
 		'delete_data_on_uninstall' => 'no',
 	);
 

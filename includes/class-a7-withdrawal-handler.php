@@ -26,9 +26,13 @@ class A7_Withdrawal_Handler
 	/** @var A7_Withdrawal_DB */
 	private A7_Withdrawal_DB $db;
 
+	/** @var A7_Withdrawal_Form_Fields */
+	private A7_Withdrawal_Form_Fields $form_fields;
+
 	public function __construct()
 	{
 		$this->db = A7_Withdrawal_DB::get_instance();
+		$this->form_fields = new A7_Withdrawal_Form_Fields();
 	}
 
 	// =========================================================================
@@ -330,6 +334,11 @@ class A7_Withdrawal_Handler
 		$nonce = $post_data['_wpnonce'] ?? '';
 		$consent = isset($post_data['consent']) ? sanitize_text_field($post_data['consent']) : '';
 		$items = isset($post_data['items']) && is_array($post_data['items']) ? $post_data['items'] : array();
+		$custom_fields = isset($post_data['a7w_fields']) && is_array($post_data['a7w_fields']) ? $post_data['a7w_fields'] : array();
+		$shipping_data = array(
+			'return_method' => sanitize_key($post_data['return_method'] ?? ''),
+			'tracking_number' => sanitize_text_field($post_data['tracking_number'] ?? ''),
+		);
 
 		// Weryfikacja nonce
 		if (!wp_verify_nonce($nonce, 'a7w_step1_' . $order_id)) {
@@ -351,6 +360,11 @@ class A7_Withdrawal_Handler
 				'success' => false,
 				'message' => __('Podaj powód odstąpienia od umowy.', 'studio-a7-odstap'),
 			);
+		}
+
+		$form_data = $this->form_fields->collect_submission($custom_fields, $_FILES); // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized
+		if (is_wp_error($form_data)) {
+			return array('success' => false, 'message' => $form_data->get_error_message());
 		}
 
 		// Pobranie zamówienia
@@ -404,6 +418,8 @@ class A7_Withdrawal_Handler
 				'ip_address' => $this->get_client_ip(),
 				'user_agent' => '',
 				'item_quantities' => wp_json_encode($item_quantities),
+				'form_data' => wp_json_encode($form_data),
+				'shipping_data' => wp_json_encode($shipping_data),
 				'created_at' => current_time('mysql'),
 			)
 		);

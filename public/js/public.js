@@ -167,7 +167,9 @@
 					{
 						url: a7wData.ajaxUrl,
 						method: 'POST',
-						data: $form.serialize(),
+						data: new FormData($form[0]),
+						processData: false,
+						contentType: false,
 					}
 				)
 					.done(
@@ -283,6 +285,13 @@
 			}
 		);
 	}
+
+	$(document).on('click', '.a7w-cancel-withdrawal', function () {
+		const $button = $(this);
+		$.post(a7wData.ajaxUrl, { action: 'a7w_cancel_withdrawal', withdrawal_id: $button.data('id'), _wpnonce: $button.data('nonce') }).done(function (response) {
+			if (response.success) { window.location.reload(); } else { window.alert(response.data && response.data.message ? response.data.message : a7wData.i18n.error_generic); }
+		});
+	});
 
 	// =========================================================================
 	// Helpery – UI

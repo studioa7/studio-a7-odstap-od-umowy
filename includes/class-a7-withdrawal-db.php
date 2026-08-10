@@ -65,6 +65,8 @@ class A7_Withdrawal_DB
 			user_agent     TEXT,
 			item_quantities LONGTEXT,
 			form_data      LONGTEXT,
+			shipping_data  LONGTEXT,
+			audit_log      LONGTEXT,
 			admin_note     TEXT,
 			decided_by     BIGINT UNSIGNED NOT NULL DEFAULT 0,
 			decided_at     DATETIME        DEFAULT NULL,
@@ -123,6 +125,8 @@ class A7_Withdrawal_DB
 			'user_agent' => '',
 			'item_quantities' => '',
 			'form_data' => '',
+			'shipping_data' => '',
+			'audit_log' => '',
 			'admin_note' => '',
 			'decided_by' => 0,
 			'decided_at' => null,
@@ -148,6 +152,8 @@ class A7_Withdrawal_DB
 				'%s', // user_agent
 				'%s', // item_quantities
 				'%s', // form_data
+				'%s', // shipping_data
+				'%s', // audit_log
 				'%s', // admin_note
 				'%d', // decided_by
 				'%s', // decided_at
@@ -177,6 +183,11 @@ class A7_Withdrawal_DB
 
 		global $wpdb;
 		$now = current_time('mysql');
+		$withdrawal = $this->get($id);
+		if (!$withdrawal || 'confirmed' !== $withdrawal->status) {
+			return false;
+		}
+
 		$result = $wpdb->update(
 			$this->get_table(),
 			array(
@@ -185,13 +196,84 @@ class A7_Withdrawal_DB
 				'decided_by' => $user_id,
 				'decided_at' => $now,
 				'updated_at' => $now,
+				'audit_log' => $this->append_audit_entry((string) $withdrawal->audit_log, 'decision', $user_id, $status, $admin_note),
 			),
 			array('id' => $id, 'status' => 'confirmed'),
-			array('%s', '%s', '%d', '%s', '%s'),
+			array('%s', '%s', '%d', '%s', '%s', '%s'),
 			array('%d', '%s')
 		);
 
 		return 1 === $result;
+	}
+
+	/**
+	 * Cancels a request while it is still awaiting staff processing.
+	 *
+	 * @param int $id Withdrawal ID.
+	 * @param int $customer_id Customer ID; zero is accepted only after guest access was verified by the caller.
+	 * @return bool
+	 */
+	public function cancel(int $id, int $customer_id = 0): bool
+	{
+		$withdrawal = $this->get($id);
+		if (!$withdrawal || !in_array($withdrawal->status, array('pending', 'confirmed'), true)) {
+			return false;
+		}
+
+		if ($customer_id > 0 && $customer_id !== (int) $withdrawal->customer_id) {
+			return false;
+		}
+
+		global $wpdb;
+		$now = current_time('mysql');
+		return 1 === $wpdb->update(
+			$this->get_table(),
+			array(
+				'status' => 'cancelled',
+				'updated_at' => $now,
+				'audit_log' => $this->append_audit_entry((string) $withdrawal->audit_log, 'cancelled', $customer_id, 'cancelled', ''),
+			),
+			array('id' => $id, 'status' => $withdrawal->status),
+			array('%s', '%s', '%s'),
+			array('%d', '%s')
+		);
+	}
+
+	/**
+	 * Returns requests belonging to a customer or a verified guest email/order pair.
+	 *
+	 * @return array<int, object>
+	 */
+	public function get_customer_requests(int $customer_id, string $email = '', int $order_id = 0): array
+	{
+		global $wpdb;
+		$table = $this->get_table();
+		if ($customer_id > 0) {
+			return (array) $wpdb->get_results($wpdb->prepare("SELECT * FROM {$table} WHERE customer_id = %d ORDER BY created_at DESC", $customer_id)); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		}
+
+		if ('' === $email || $order_id <= 0) {
+			return array();
+		}
+
+		return (array) $wpdb->get_results($wpdb->prepare("SELECT * FROM {$table} WHERE customer_id = 0 AND customer_email = %s AND order_id = %d ORDER BY created_at DESC", $email, $order_id)); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+	}
+
+	/**
+	 * Adds a structured, immutable audit event to the request record.
+	 */
+	private function append_audit_entry(string $audit_log, string $event, int $user_id, string $status, string $note): string
+	{
+		$entries = json_decode($audit_log, true);
+		$entries = is_array($entries) ? $entries : array();
+		$entries[] = array(
+			'event' => sanitize_key($event),
+			'user_id' => absint($user_id),
+			'status' => sanitize_key($status),
+			'note' => sanitize_textarea_field($note),
+			'at' => current_time('mysql'),
+		);
+		return wp_json_encode($entries);
 	}
 
 	/**
@@ -210,6 +292,7 @@ class A7_Withdrawal_DB
 			array(
 				'status' => $status,
 				'confirmed_at' => current_time('mysql'),
+				'updated_at' => current_time('mysql'),
 			),
 			array(
 				'id' => $id,

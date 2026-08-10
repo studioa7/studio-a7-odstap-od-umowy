@@ -76,7 +76,8 @@ $withdrawal_days = max(1, absint(get_option('a7w_withdrawal_days', 14)));
 				?>
 			</p>
 
-			<form class="a7w-form" id="a7w-form-step1-<?php echo esc_attr($order_id); ?>" novalidate>
+			<form class="a7w-form" id="a7w-form-step1-<?php echo esc_attr($order_id); ?>" enctype="multipart/form-data"
+				novalidate>
 				<input type="hidden" name="action" value="a7w_step1">
 				<input type="hidden" name="order_id" value="<?php echo esc_attr($order_id); ?>">
 				<input type="hidden" name="_wpnonce" value="<?php echo esc_attr($nonce1); ?>">
@@ -89,6 +90,24 @@ $withdrawal_days = max(1, absint(get_option('a7w_withdrawal_days', 14)));
 					<input type="text" id="a7w-name-<?php echo esc_attr($order_id); ?>" class="a7w-form__input"
 						value="<?php echo esc_attr($customer_name); ?>" readonly aria-readonly="true">
 				</div>
+
+				<div class="a7w-form__group">
+					<label class="a7w-form__label"
+						for="a7w-return-method-<?php echo esc_attr($order_id); ?>"><?php esc_html_e('Sposób odesłania towaru', 'studio-a7-odstap'); ?></label>
+					<select class="a7w-form__input" id="a7w-return-method-<?php echo esc_attr($order_id); ?>"
+						name="return_method">
+						<option value=""><?php esc_html_e('Wybiorę później', 'studio-a7-odstap'); ?></option>
+						<option value="courier"><?php esc_html_e('Kurier', 'studio-a7-odstap'); ?></option>
+						<option value="post"><?php esc_html_e('Poczta', 'studio-a7-odstap'); ?></option>
+						<option value="personal"><?php esc_html_e('Odbiór osobisty', 'studio-a7-odstap'); ?></option>
+					</select>
+				</div>
+				<div class="a7w-form__group"><label class="a7w-form__label"
+						for="a7w-tracking-<?php echo esc_attr($order_id); ?>"><?php esc_html_e('Numer przesyłki zwrotnej (opcjonalnie)', 'studio-a7-odstap'); ?></label><input
+						class="a7w-form__input" id="a7w-tracking-<?php echo esc_attr($order_id); ?>"
+						name="tracking_number" type="text"></div>
+				<?php if (isset($handler) && $handler instanceof A7_Withdrawal_Handler):
+					(new A7_Withdrawal_Form_Fields())->render(); endif; ?>
 
 				<div class="a7w-form__group a7w-withdrawal-items">
 					<fieldset>

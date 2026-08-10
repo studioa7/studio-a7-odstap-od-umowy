@@ -60,6 +60,11 @@ class A7_Withdrawal_Main
 		// AJAX – krok 2 (potwierdzenie)
 		add_action('wp_ajax_a7w_step2', array($this, 'ajax_step2'));
 		add_action('wp_ajax_nopriv_a7w_step2', array($this, 'ajax_step2'));
+		add_action('wp_ajax_a7w_cancel_withdrawal', array($this, 'ajax_cancel_withdrawal'));
+		add_action('wp_ajax_nopriv_a7w_cancel_withdrawal', array($this, 'ajax_cancel_withdrawal'));
+		add_action('woocommerce_account_a7w-returns_endpoint', array($this, 'render_return_history'));
+		add_filter('woocommerce_account_menu_items', array($this, 'add_return_history_endpoint'));
+		add_action('init', array($this, 'register_return_history_endpoint'));
 
 		add_shortcode('a7w_guest_withdrawal', array($this, 'render_guest_withdrawal_shortcode'));
 		add_action('template_redirect', array($this, 'process_guest_lookup'), 1);
@@ -349,6 +354,72 @@ class A7_Withdrawal_Main
 	{
 		$result = $this->handler->process_step2(wp_unslash($_POST)); // phpcs:ignore WordPress.Security.NonceVerification.Missing
 		wp_send_json($result);
+	}
+
+	/** Registers the customer return-history endpoint without touching order storage. */
+	public function register_return_history_endpoint(): void
+	{
+		add_rewrite_endpoint('a7w-returns', EP_ROOT | EP_PAGES);
+	}
+
+	/** @param array<string, string> $items @return array<string, string> */
+	public function add_return_history_endpoint(array $items): array
+	{
+		$items['a7w-returns'] = __('Zwroty i odstąpienia', 'studio-a7-odstap');
+		return $items;
+	}
+
+	/** Renders only the authenticated account holder's request history. */
+	public function render_return_history(): void
+	{
+		if (!is_user_logged_in()) {
+			return;
+		}
+		$requests = A7_Withdrawal_DB::get_instance()->get_customer_requests(get_current_user_id());
+		?>
+		<h2><?php esc_html_e('Zwroty i odstąpienia', 'studio-a7-odstap'); ?></h2>
+		<?php if (!$requests): ?>
+			<p><?php esc_html_e('Nie masz jeszcze złożonych wniosków.', 'studio-a7-odstap'); ?></p><?php return; endif; ?>
+		<table class="woocommerce-table woocommerce-table--order-details shop_table order_details">
+			<thead>
+				<tr>
+					<th><?php esc_html_e('Zamówienie', 'studio-a7-odstap'); ?></th>
+					<th><?php esc_html_e('Status', 'studio-a7-odstap'); ?></th>
+					<th><?php esc_html_e('Data', 'studio-a7-odstap'); ?></th>
+					<th></th>
+				</tr>
+			</thead>
+			<tbody>
+				<?php foreach ($requests as $request): ?>
+					<tr>
+						<td>#<?php echo esc_html($request->order_id); ?></td>
+						<td><?php echo esc_html($request->status); ?></td>
+						<td><?php echo esc_html(wp_date(get_option('date_format'), strtotime($request->created_at))); ?></td>
+						<td><?php if (in_array($request->status, array('pending', 'confirmed'), true)): ?><button type="button"
+									class="button a7w-cancel-withdrawal" data-id="<?php echo esc_attr($request->id); ?>"
+									data-nonce="<?php echo esc_attr(wp_create_nonce('a7w_cancel_' . $request->id)); ?>"><?php esc_html_e('Anuluj wniosek', 'studio-a7-odstap'); ?></button><?php endif; ?>
+						</td>
+					</tr><?php endforeach; ?>
+			</tbody>
+		</table>
+		<?php
+	}
+
+	/** Cancels an own request; guest cancellation is bound to the existing server-side session. */
+	public function ajax_cancel_withdrawal(): void
+	{
+		$id = absint($_POST['withdrawal_id'] ?? 0); // phpcs:ignore WordPress.Security.NonceVerification.Missing
+		$nonce = sanitize_text_field(wp_unslash($_POST['_wpnonce'] ?? '')); // phpcs:ignore WordPress.Security.NonceVerification.Missing
+		if (!$id || !wp_verify_nonce($nonce, 'a7w_cancel_' . $id)) {
+			wp_send_json_error(array('message' => __('Błąd bezpieczeństwa.', 'studio-a7-odstap')), 403);
+		}
+		$request = A7_Withdrawal_DB::get_instance()->get($id);
+		$authorized = $request && ((int) $request->customer_id === get_current_user_id() || (0 === (int) $request->customer_id && $this->handler->get_guest_session_order_id() === (int) $request->order_id));
+		if (!$authorized || !A7_Withdrawal_DB::get_instance()->cancel($id, get_current_user_id())) {
+			wp_send_json_error(array('message' => __('Nie można anulować tego wniosku.', 'studio-a7-odstap')), 403);
+		}
+		do_action('a7w_withdrawal_cancelled', $request, wc_get_order((int) $request->order_id));
+		wp_send_json_success(array('message' => __('Wniosek został anulowany.', 'studio-a7-odstap')));
 	}
 
 	// =========================================================================
