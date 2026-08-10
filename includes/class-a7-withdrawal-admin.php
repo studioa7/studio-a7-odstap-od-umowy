@@ -46,6 +46,7 @@ class A7_Withdrawal_Admin
 		add_action('admin_enqueue_scripts', array($this, 'enqueue_assets'));
 		add_action('admin_init', array($this, 'register_settings'));
 		add_action('admin_init', array($this, 'handle_export_csv'));
+		add_action('admin_post_a7w_decide_withdrawal', array($this, 'handle_withdrawal_decision'));
 
 		// Kolumna w panelu zamówień
 		add_filter('manage_woocommerce_page_wc-orders_columns', array($this, 'add_orders_column'));
@@ -55,6 +56,41 @@ class A7_Withdrawal_Admin
 
 		// Metabox w szczegółach zamówienia (panel admina)
 		add_action('add_meta_boxes', array($this, 'add_order_metabox'));
+	}
+
+	/**
+	 * Processes an approve/reject decision from the request list.
+	 */
+	public function handle_withdrawal_decision(): void
+	{
+		if (!current_user_can('manage_woocommerce')) {
+			wp_die(esc_html__('Brak uprawnień.', 'studio-a7-odstap'));
+		}
+
+		$id = isset($_POST['withdrawal_id']) ? absint($_POST['withdrawal_id']) : 0; // phpcs:ignore WordPress.Security.NonceVerification.Missing
+		$status = isset($_POST['decision']) ? sanitize_key(wp_unslash($_POST['decision'])) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Missing
+		$note = isset($_POST['admin_note']) ? sanitize_textarea_field(wp_unslash($_POST['admin_note'])) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Missing
+		check_admin_referer('a7w_decide_withdrawal_' . $id);
+
+		$withdrawal = $this->db->get($id);
+		$success = $withdrawal && $this->db->decide($id, $status, $note, get_current_user_id());
+
+		if ($success) {
+			$order = wc_get_order((int) $withdrawal->order_id);
+			if ($order) {
+				$order->add_order_note(
+					sprintf(
+						/* translators: 1: decision, 2: optional note. */
+						__('Decyzja dotycząca odstąpienia: %1$s. %2$s', 'studio-a7-odstap'),
+						'approved' === $status ? __('zaakceptowano', 'studio-a7-odstap') : __('odrzucono', 'studio-a7-odstap'),
+						$note
+					)
+				);
+			}
+		}
+
+		wp_safe_redirect(add_query_arg('a7w_decision', $success ? 'success' : 'error', admin_url('admin.php?page=a7w-requests')));
+		exit;
 	}
 
 	// =========================================================================

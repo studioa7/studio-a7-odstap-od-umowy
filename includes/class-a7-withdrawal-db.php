@@ -64,6 +64,11 @@ class A7_Withdrawal_DB
 			ip_address     VARCHAR(45)     NOT NULL DEFAULT '',
 			user_agent     TEXT,
 			item_quantities LONGTEXT,
+			form_data      LONGTEXT,
+			admin_note     TEXT,
+			decided_by     BIGINT UNSIGNED NOT NULL DEFAULT 0,
+			decided_at     DATETIME        DEFAULT NULL,
+			updated_at     DATETIME        DEFAULT NULL,
 			created_at     DATETIME        NOT NULL,
 			confirmed_at   DATETIME        DEFAULT NULL,
 			PRIMARY KEY  (id),
@@ -117,6 +122,11 @@ class A7_Withdrawal_DB
 			'ip_address' => '',
 			'user_agent' => '',
 			'item_quantities' => '',
+			'form_data' => '',
+			'admin_note' => '',
+			'decided_by' => 0,
+			'decided_at' => null,
+			'updated_at' => null,
 			'created_at' => current_time('mysql'),
 			'confirmed_at' => null,
 		);
@@ -137,12 +147,51 @@ class A7_Withdrawal_DB
 				'%s', // ip_address
 				'%s', // user_agent
 				'%s', // item_quantities
+				'%s', // form_data
+				'%s', // admin_note
+				'%d', // decided_by
+				'%s', // decided_at
+				'%s', // updated_at
 				'%s', // created_at
 				'%s', // confirmed_at
 			)
 		);
 
 		return $result ? (int) $wpdb->insert_id : false;
+	}
+
+	/**
+	 * Records a staff decision and its audit details.
+	 *
+	 * @param int    $id         Withdrawal ID.
+	 * @param string $status     Approved or rejected status.
+	 * @param string $admin_note Internal or customer-facing decision note.
+	 * @param int    $user_id    Staff user ID.
+	 * @return bool
+	 */
+	public function decide(int $id, string $status, string $admin_note, int $user_id): bool
+	{
+		if (!in_array($status, array('approved', 'rejected'), true)) {
+			return false;
+		}
+
+		global $wpdb;
+		$now = current_time('mysql');
+		$result = $wpdb->update(
+			$this->get_table(),
+			array(
+				'status' => $status,
+				'admin_note' => $admin_note,
+				'decided_by' => $user_id,
+				'decided_at' => $now,
+				'updated_at' => $now,
+			),
+			array('id' => $id, 'status' => 'confirmed'),
+			array('%s', '%s', '%d', '%s', '%s'),
+			array('%d', '%s')
+		);
+
+		return 1 === $result;
 	}
 
 	/**
