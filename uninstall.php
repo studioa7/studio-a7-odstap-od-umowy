@@ -9,14 +9,14 @@
  */
 
 // Zabezpieczenie – plik może być wywołany tylko przez WordPress uninstall
-if ( ! defined( 'WP_UNINSTALL_PLUGIN' ) ) {
+if (!defined('WP_UNINSTALL_PLUGIN')) {
 	exit;
 }
 
 global $wpdb;
 
-if ( 'yes' !== get_option( 'a7w_delete_data_on_uninstall', 'no' ) ) {
-	wp_clear_scheduled_hook( 'a7w_cleanup_pending' );
+if ('yes' !== get_option('a7w_delete_data_on_uninstall', 'no')) {
+	wp_clear_scheduled_hook('a7w_cleanup_pending');
 	return;
 }
 
@@ -38,6 +38,12 @@ $options = array(
 	'a7w_notify_admin',
 	'a7w_admin_email',
 	'a7w_retention_months',
+	'a7w_form_fields',
+	'a7w_eligibility_rules',
+	'a7w_approval_action',
+	'a7w_coupon_amount',
+	'a7w_refund_amount',
+	'a7w_refund_payment',
 	'a7w_delete_data_on_uninstall',
 	'a7w_db_version',
 	// Opcje emaili WooCommerce
@@ -45,9 +51,9 @@ $options = array(
 	'woocommerce_a7w_admin_notification_settings',
 );
 
-foreach ( $options as $option ) {
-	delete_option( $option );
+foreach ($options as $option) {
+	delete_option($option);
 }
 
 // Usuń zaplanowane zadania cron
-wp_clear_scheduled_hook( 'a7w_cleanup_pending' );
+wp_clear_scheduled_hook('a7w_cleanup_pending');

@@ -132,6 +132,13 @@ class A7_Withdrawal_Form_Fields
             }
             $value = $submitted[$key] ?? ('checkbox' === $type || 'multiselect' === $type ? array() : '');
             $value = is_array($value) ? array_values(array_filter(array_map('sanitize_text_field', $value), 'strlen')) : sanitize_textarea_field($value);
+            if (in_array($type, array('checkbox', 'radio', 'select', 'multiselect'), true)) {
+                $allowed_options = array_map('strval', (array) ($field['options'] ?? array()));
+                $values = is_array($value) ? $value : array($value);
+                if (array_diff($values, $allowed_options)) {
+                    return new \WP_Error('invalid_field_value', sprintf(__('Nieprawidłowa wartość pola „%s”.', 'studio-a7-odstap'), $field['label']));
+                }
+            }
             if (!empty($field['required']) && ('' === $value || array() === $value)) {
                 return new \WP_Error('required_field', sprintf(__('Pole „%s” jest wymagane.', 'studio-a7-odstap'), $field['label']));
             }

@@ -293,6 +293,20 @@
 		});
 	});
 
+	$(document).on('submit', '.a7w-shipping-update', function (event) {
+		event.preventDefault();
+		const $form = $(this);
+		$.post(a7wData.ajaxUrl, {
+			action: 'a7w_update_shipping',
+			withdrawal_id: $form.data('id'),
+			_wpnonce: $form.data('nonce'),
+			return_method: $form.find('[name="return_method"]').val(),
+			tracking_number: $form.find('[name="tracking_number"]').val(),
+		}).done(function (response) {
+			if (!response.success) { window.alert(response.data && response.data.message ? response.data.message : a7wData.i18n.error_generic); }
+		});
+	});
+
 	// =========================================================================
 	// Helpery – UI
 	// =========================================================================

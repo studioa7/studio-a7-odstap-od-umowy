@@ -4,7 +4,7 @@ Tags:              woocommerce, prawo odstąpienia od umowy, consumer rights, eu
 Requires at least: 6.0
 Tested up to:      6.8
 Requires PHP:      8.0
-Stable tag:        1.1.4
+Stable tag:        2.0.0
 License:           GPLv2 or later
 License URI:       https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -29,6 +29,8 @@ dwuetapowe złożenie oświadczenia i trwałe potwierdzenie e-mail.
 * **Metabox w zamówieniu** – widoczny status odstąpienia bezpośrednio w panelu zamówień
 * **Kolumna w tabeli zamówień** – szybki podgląd statusu dla każdego zamówienia
 * **Zgodny z HPOS** – działa z High-Performance Order Storage WooCommerce
+* **Konfigurowalny formularz i reguły** – dodatkowe pola, załączniki oraz ograniczenia płatności, dostawy, roli i produktów
+* **Pełny cykl obsługi** – historia klienta, dane przesyłki zwrotnej, decyzje administratora i dziennik audytu
 
 = Disclaimer =
 
@@ -84,6 +86,14 @@ Tak. Treść i temat emaila edytujesz w **WooCommerce → Ustawienia → Email �
 7. Metabox w szczegółach zamówienia (admin)
 
 == Dziennik zmian ==
+
+= 2.0.0 =
+* Konfigurowalne pola formularza z walidacją wartości i bezpieczną obsługą załączników PDF/JPG/PNG
+* Konfigurowalne reguły kwalifikacji dla metod płatności i dostawy, ról klientów oraz produktów
+* Historia wniosków klienta, anulowanie oczekującego wniosku oraz aktualizacja danych przesyłki
+* Panel decyzji administratora z notatką, dziennikiem audytu i opcjonalnym utworzeniem kuponu albo zwrotu
+* Powiadomienia klienta o decyzji, anulowaniu i zapisaniu danych przesyłki
+* Testy integracyjne cyklu potwierdzenia, decyzji i audytu
 
 = 1.1.4 =
 * Poprawiono układ wyboru pozycji w formularzu odstąpienia

@@ -240,6 +240,58 @@ class A7_Withdrawal_DB
 	}
 
 	/**
+	 * Updates return shipment information for a request that is still in the
+	 * customer-service lifecycle. Authorization is performed by the caller.
+	 *
+	 * @param array<string, string> $shipping_data
+	 */
+	public function update_shipping(int $id, array $shipping_data, int $actor_id = 0): bool
+	{
+		$withdrawal = $this->get($id);
+		if (!$withdrawal || !in_array($withdrawal->status, array('confirmed', 'approved'), true)) {
+			return false;
+		}
+
+		$shipping_data = array(
+			'return_method' => sanitize_text_field((string) ($shipping_data['return_method'] ?? '')),
+			'tracking_number' => sanitize_text_field((string) ($shipping_data['tracking_number'] ?? '')),
+		);
+		global $wpdb;
+		$now = current_time('mysql');
+		return 1 === $wpdb->update(
+			$this->get_table(),
+			array(
+				'shipping_data' => wp_json_encode($shipping_data),
+				'updated_at' => $now,
+				'audit_log' => $this->append_audit_entry((string) $withdrawal->audit_log, 'shipping_updated', $actor_id, $withdrawal->status, ''),
+			),
+			array('id' => $id, 'status' => $withdrawal->status),
+			array('%s', '%s', '%s'),
+			array('%d', '%s')
+		);
+	}
+
+	/** Adds an audit record without changing the lifecycle status. */
+	public function add_audit_event(int $id, string $event, int $actor_id, string $note = ''): bool
+	{
+		$withdrawal = $this->get($id);
+		if (!$withdrawal) {
+			return false;
+		}
+		global $wpdb;
+		return 1 === $wpdb->update(
+			$this->get_table(),
+			array(
+				'audit_log' => $this->append_audit_entry((string) $withdrawal->audit_log, $event, $actor_id, (string) $withdrawal->status, $note),
+				'updated_at' => current_time('mysql'),
+			),
+			array('id' => $id),
+			array('%s', '%s'),
+			array('%d')
+		);
+	}
+
+	/**
 	 * Returns requests belonging to a customer or a verified guest email/order pair.
 	 *
 	 * @return array<int, object>
@@ -287,18 +339,24 @@ class A7_Withdrawal_DB
 	{
 		global $wpdb;
 
+		$withdrawal = $this->get($id);
+		if (!$withdrawal || 'pending' !== $withdrawal->status) {
+			return false;
+		}
+		$now = current_time('mysql');
 		$result = $wpdb->update(
 			$this->get_table(),
 			array(
 				'status' => $status,
-				'confirmed_at' => current_time('mysql'),
-				'updated_at' => current_time('mysql'),
+				'confirmed_at' => $now,
+				'updated_at' => $now,
+				'audit_log' => $this->append_audit_entry((string) $withdrawal->audit_log, 'confirmed', (int) $withdrawal->customer_id, $status, ''),
 			),
 			array(
 				'id' => $id,
 				'status' => 'pending',
 			),
-			array('%s', '%s'),
+			array('%s', '%s', '%s'),
 			array('%d', '%s')
 		);
 
@@ -350,7 +408,7 @@ class A7_Withdrawal_DB
 		global $wpdb;
 
 		$table = $this->get_table();
-		$rows = $wpdb->get_col($wpdb->prepare("SELECT item_quantities FROM {$table} WHERE order_id = %d AND status = 'confirmed'", $order_id)); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		$rows = $wpdb->get_col($wpdb->prepare("SELECT item_quantities FROM {$table} WHERE order_id = %d AND status IN ('confirmed', 'approved')", $order_id)); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 		$quantities = array();
 
 		foreach ($rows as $row) {

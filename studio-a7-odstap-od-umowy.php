@@ -196,6 +196,11 @@ function a7w_activate(): void
 		'notify_admin' => 'yes',
 		'retention_months' => 24,
 		'form_fields' => array(),
+		'eligibility_rules' => array(),
+		'approval_action' => 'none',
+		'coupon_amount' => 0,
+		'refund_amount' => 0,
+		'refund_payment' => 'no',
 		'delete_data_on_uninstall' => 'no',
 	);
 

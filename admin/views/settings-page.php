@@ -37,6 +37,15 @@ $status_after = get_option('a7w_order_status_after_withdrawal', '');
 $require_reason = get_option('a7w_require_reason', 'no');
 $retention_months = (int) get_option('a7w_retention_months', 24);
 $delete_on_uninstall = get_option('a7w_delete_data_on_uninstall', 'no');
+$form_fields = get_option('a7w_form_fields', array());
+$form_fields_json = wp_json_encode(is_array($form_fields) ? $form_fields : array(), JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
+$eligibility_rules = (array) get_option('a7w_eligibility_rules', array());
+$approval_action = get_option('a7w_approval_action', 'none');
+$coupon_amount = get_option('a7w_coupon_amount', 0);
+$refund_amount = get_option('a7w_refund_amount', 0);
+$refund_payment = get_option('a7w_refund_payment', 'no');
+$payment_gateways = function_exists('WC') && WC()->payment_gateways() ? WC()->payment_gateways()->payment_gateways() : array();
+$roles = wp_roles()->roles;
 ?>
 
 <div class="wrap a7w-admin-wrap">
@@ -149,6 +158,94 @@ $delete_on_uninstall = get_option('a7w_delete_data_on_uninstall', 'no');
 				</div>
 			</div>
 
+			<div class="a7w-card">
+				<div class="a7w-card__header">
+					<h2><?php esc_html_e('Dodatkowe pola formularza', 'studio-a7-odstap'); ?></h2>
+				</div>
+				<div class="a7w-card__body">
+					<label class="a7w-field__label"
+						for="a7w_form_fields"><?php esc_html_e('Definicje pól (JSON)', 'studio-a7-odstap'); ?></label>
+					<textarea id="a7w_form_fields" name="a7w_form_fields" class="large-text code"
+						rows="12"><?php echo esc_textarea($form_fields_json ?: '[]'); ?></textarea>
+					<p class="a7w-field__desc">
+						<?php esc_html_e('Każde pole wymaga kluczy: key, type, label, required. Dozwolone typy: text, textarea, select, multiselect, radio, checkbox, html, upload. Opcje podaj jako tablicę „options”; pliki są ograniczone do PDF/JPG/PNG i 5 MB.', 'studio-a7-odstap'); ?>
+					</p>
+				</div>
+			</div>
+
+			<div class="a7w-card">
+				<div class="a7w-card__header">
+					<h2><?php esc_html_e('Dodatkowe reguły kwalifikacji', 'studio-a7-odstap'); ?></h2>
+				</div>
+				<div class="a7w-card__body">
+					<div class="a7w-field"><label
+							class="a7w-field__label"><?php esc_html_e('Dozwolone metody płatności', 'studio-a7-odstap'); ?></label>
+						<div class="a7w-checkboxes">
+							<?php foreach ($payment_gateways as $gateway_id => $gateway): ?><label
+									class="a7w-checkbox-label"><input type="checkbox"
+										name="a7w_eligibility_rules[payment_methods][]"
+										value="<?php echo esc_attr($gateway_id); ?>" <?php checked(in_array($gateway_id, (array) ($eligibility_rules['payment_methods'] ?? array()), true)); ?>><?php echo esc_html($gateway->get_title()); ?></label><?php endforeach; ?>
+						</div>
+						<p class="a7w-field__desc">
+							<?php esc_html_e('Brak wyboru oznacza brak ograniczenia.', 'studio-a7-odstap'); ?></p>
+					</div>
+					<div class="a7w-field"><label
+							class="a7w-field__label"><?php esc_html_e('Dozwolone role klientów', 'studio-a7-odstap'); ?></label>
+						<div class="a7w-checkboxes">
+							<?php foreach ($roles as $role_key => $role): ?><label class="a7w-checkbox-label"><input
+										type="checkbox" name="a7w_eligibility_rules[user_roles][]"
+										value="<?php echo esc_attr($role_key); ?>" <?php checked(in_array($role_key, (array) ($eligibility_rules['user_roles'] ?? array()), true)); ?>><?php echo esc_html(translate_user_role($role['name'])); ?></label><?php endforeach; ?>
+						</div>
+					</div>
+					<div class="a7w-field"><label class="a7w-field__label"
+							for="a7w-shipping-methods"><?php esc_html_e('Identyfikatory metod dostawy', 'studio-a7-odstap'); ?></label><textarea
+							id="a7w-shipping-methods" name="a7w_eligibility_rules[shipping_methods]" class="large-text"
+							rows="3"><?php echo esc_textarea(implode("\n", (array) ($eligibility_rules['shipping_methods'] ?? array()))); ?></textarea>
+					</div>
+					<div class="a7w-field"><label class="a7w-field__label"
+							for="a7w-excluded-products"><?php esc_html_e('Wykluczone identyfikatory produktów', 'studio-a7-odstap'); ?></label><input
+							id="a7w-excluded-products" name="a7w_eligibility_rules[excluded_products]" type="text"
+							class="a7w-input a7w-input--wide"
+							value="<?php echo esc_attr(implode(',', (array) ($eligibility_rules['excluded_products'] ?? array()))); ?>">
+						<p class="a7w-field__desc">
+							<?php esc_html_e('Rozdziel numery produktów przecinkami.', 'studio-a7-odstap'); ?></p>
+					</div>
+				</div>
+			</div>
+
+			<div class="a7w-card">
+				<div class="a7w-card__header">
+					<h2><?php esc_html_e('Akcja po zatwierdzeniu', 'studio-a7-odstap'); ?></h2>
+				</div>
+				<div class="a7w-card__body">
+					<div class="a7w-field"><label class="a7w-field__label"
+							for="a7w-approval-action"><?php esc_html_e('Opcjonalna akcja', 'studio-a7-odstap'); ?></label><select
+							id="a7w-approval-action" name="a7w_approval_action" class="a7w-select">
+							<option value="none" <?php selected($approval_action, 'none'); ?>>
+								<?php esc_html_e('Brak — wyłącznie decyzja administratora', 'studio-a7-odstap'); ?>
+							</option>
+							<option value="coupon" <?php selected($approval_action, 'coupon'); ?>>
+								<?php esc_html_e('Utwórz kupon', 'studio-a7-odstap'); ?></option>
+							<option value="refund" <?php selected($approval_action, 'refund'); ?>>
+								<?php esc_html_e('Utwórz zwrot środków', 'studio-a7-odstap'); ?></option>
+						</select></div>
+					<div class="a7w-field"><label class="a7w-field__label"
+							for="a7w-coupon-amount"><?php esc_html_e('Wartość kuponu', 'studio-a7-odstap'); ?></label><input
+							id="a7w-coupon-amount" name="a7w_coupon_amount" type="number" min="0" step="0.01"
+							value="<?php echo esc_attr($coupon_amount); ?>" class="a7w-input a7w-input--short"></div>
+					<div class="a7w-field"><label class="a7w-field__label"
+							for="a7w-refund-amount"><?php esc_html_e('Kwota zwrotu', 'studio-a7-odstap'); ?></label><input
+							id="a7w-refund-amount" name="a7w_refund_amount" type="number" min="0" step="0.01"
+							value="<?php echo esc_attr($refund_amount); ?>" class="a7w-input a7w-input--short"><label
+							class="a7w-toggle"><input type="checkbox" name="a7w_refund_payment" value="yes" <?php checked($refund_payment, 'yes'); ?>><span class="a7w-toggle__slider"></span><span
+								class="a7w-toggle__label"><?php esc_html_e('Wyślij zwrot do bramki płatności', 'studio-a7-odstap'); ?></span></label>
+					</div>
+					<p class="a7w-field__desc">
+						<?php esc_html_e('Akcja jest wykonywana tylko po ręcznym zatwierdzeniu wniosku. Zwrot nigdy nie przekroczy dostępnej kwoty zamówienia.', 'studio-a7-odstap'); ?>
+					</p>
+				</div>
+			</div>
+
 			<!-- ============================================================
 				DOSTĘP GOŚCINNY
 				============================================================ -->
@@ -159,7 +256,8 @@ $delete_on_uninstall = get_option('a7w_delete_data_on_uninstall', 'no');
 				<div class="a7w-card__body">
 					<div class="a7w-notice a7w-notice--info">
 						<p><strong><?php esc_html_e('Shortcode:', 'studio-a7-odstap'); ?></strong>
-							<code>[a7w_guest_withdrawal]</code></p>
+							<code>[a7w_guest_withdrawal]</code>
+						</p>
 						<p><?php esc_html_e('Utwórz publiczną stronę „Odstąp od umowy tutaj” i wstaw na niej ten shortcode. Klient-gość podaje numer zamówienia, adres e-mail rozliczeniowy oraz klucz zamówienia z potwierdzenia zakupu.', 'studio-a7-odstap'); ?>
 						</p>
 						<p><?php esc_html_e('Po pomyślnej weryfikacji dostęp do formularza jest przyznawany przez 15 minut w bezpiecznym ciasteczku HttpOnly. Klucz zamówienia nie jest wyświetlany ani wysyłany w kolejnych krokach.', 'studio-a7-odstap'); ?>

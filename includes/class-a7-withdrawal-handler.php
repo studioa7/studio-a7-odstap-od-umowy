@@ -94,6 +94,11 @@ class A7_Withdrawal_Handler
 			return $exclusion_check;
 		}
 
+		$rules_check = (new A7_Withdrawal_Rules())->evaluate($order);
+		if (is_wp_error($rules_check)) {
+			return $rules_check;
+		}
+
 		// 4. Tylko uwierzytelniony właściciel lub zweryfikowany gość może złożyć oświadczenie.
 		$current_user_id = get_current_user_id();
 		$order_user_id = (int) $order->get_customer_id();

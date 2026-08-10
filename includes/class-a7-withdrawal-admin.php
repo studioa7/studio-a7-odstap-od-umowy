@@ -74,6 +74,7 @@ class A7_Withdrawal_Admin
 
 		$withdrawal = $this->db->get($id);
 		$success = $withdrawal && $this->db->decide($id, $status, $note, get_current_user_id());
+		$action_error = '';
 
 		if ($success) {
 			$order = wc_get_order((int) $withdrawal->order_id);
@@ -87,9 +88,24 @@ class A7_Withdrawal_Admin
 					)
 				);
 			}
+			$updated = $this->db->get($id);
+			if ('approved' === $status && $order && $updated) {
+				$action_result = (new A7_Withdrawal_Actions())->apply($updated, $order);
+				if (is_wp_error($action_result)) {
+					$action_error = $action_result->get_error_message();
+					$this->db->add_audit_event($id, 'approval_action_failed', get_current_user_id(), $action_error);
+				} else {
+					$this->db->add_audit_event($id, 'approval_action_completed', get_current_user_id(), (string) get_option('a7w_approval_action', 'none'));
+				}
+			}
+			do_action('a7w_withdrawal_decided', $this->db->get($id), $order, $status);
 		}
 
-		wp_safe_redirect(add_query_arg('a7w_decision', $success ? 'success' : 'error', admin_url('admin.php?page=a7w-requests')));
+		$args = array('a7w_decision' => $success ? 'success' : 'error');
+		if ('' !== $action_error) {
+			$args['a7w_action_error'] = rawurlencode($action_error);
+		}
+		wp_safe_redirect(add_query_arg($args, admin_url('admin.php?page=a7w-requests')));
 		exit;
 	}
 
@@ -151,6 +167,9 @@ class A7_Withdrawal_Admin
 			array(
 				'type' => 'integer',
 				'default' => 14,
+				'sanitize_callback' => static function ($value): int {
+					return min(30, max(1, absint($value)));
+				},
 			)
 		);
 		register_setting(
@@ -159,6 +178,7 @@ class A7_Withdrawal_Admin
 			array(
 				'type' => 'array',
 				'default' => array('wc-completed', 'wc-processing'),
+				'sanitize_callback' => array($this, 'sanitize_order_statuses'),
 			)
 		);
 		register_setting(
@@ -176,6 +196,7 @@ class A7_Withdrawal_Admin
 			array(
 				'type' => 'string',
 				'default' => 'yes',
+				'sanitize_callback' => array($this, 'sanitize_yes_no'),
 			)
 		);
 		register_setting(
@@ -184,6 +205,7 @@ class A7_Withdrawal_Admin
 			array(
 				'type' => 'string',
 				'default' => 'no',
+				'sanitize_callback' => array($this, 'sanitize_yes_no'),
 			)
 		);
 		register_setting(
@@ -192,6 +214,7 @@ class A7_Withdrawal_Admin
 			array(
 				'type' => 'string',
 				'default' => '',
+				'sanitize_callback' => array($this, 'sanitize_order_status'),
 			)
 		);
 
@@ -202,6 +225,7 @@ class A7_Withdrawal_Admin
 			array(
 				'type' => 'string',
 				'default' => 'yes',
+				'sanitize_callback' => array($this, 'sanitize_yes_no'),
 			)
 		);
 		register_setting(
@@ -210,6 +234,7 @@ class A7_Withdrawal_Admin
 			array(
 				'type' => 'string',
 				'default' => 'yes',
+				'sanitize_callback' => array($this, 'sanitize_yes_no'),
 			)
 		);
 		register_setting(
@@ -218,6 +243,9 @@ class A7_Withdrawal_Admin
 			array(
 				'type' => 'array',
 				'default' => array(),
+				'sanitize_callback' => static function ($value): array {
+					return array_values(array_unique(array_filter(array_map('absint', (array) $value))));
+				},
 			)
 		);
 
@@ -228,6 +256,7 @@ class A7_Withdrawal_Admin
 			array(
 				'type' => 'string',
 				'default' => 'yes',
+				'sanitize_callback' => array($this, 'sanitize_yes_no'),
 			)
 		);
 		register_setting(
@@ -261,6 +290,95 @@ class A7_Withdrawal_Admin
 				},
 			)
 		);
+
+		register_setting(
+			'a7w_settings',
+			'a7w_form_fields',
+			array(
+				'type' => 'array',
+				'default' => array(),
+				'sanitize_callback' => array(new A7_Withdrawal_Form_Fields(), 'sanitize_definitions'),
+			)
+		);
+		register_setting(
+			'a7w_settings',
+			'a7w_eligibility_rules',
+			array(
+				'type' => 'array',
+				'default' => array(),
+				'sanitize_callback' => array($this, 'sanitize_eligibility_rules'),
+			)
+		);
+		register_setting(
+			'a7w_settings',
+			'a7w_approval_action',
+			array('type' => 'string', 'default' => 'none', 'sanitize_callback' => array($this, 'sanitize_approval_action'))
+		);
+		register_setting(
+			'a7w_settings',
+			'a7w_coupon_amount',
+			array('type' => 'number', 'default' => 0, 'sanitize_callback' => array($this, 'sanitize_money_amount'))
+		);
+		register_setting(
+			'a7w_settings',
+			'a7w_refund_amount',
+			array('type' => 'number', 'default' => 0, 'sanitize_callback' => array($this, 'sanitize_money_amount'))
+		);
+		register_setting(
+			'a7w_settings',
+			'a7w_refund_payment',
+			array('type' => 'string', 'default' => 'no', 'sanitize_callback' => array($this, 'sanitize_yes_no'))
+		);
+	}
+
+	/** @param mixed $value @return array<int, string> */
+	public function sanitize_order_statuses($value): array
+	{
+		$available = array_keys(wc_get_order_statuses());
+		return array_values(array_intersect($available, array_map('sanitize_key', (array) $value)));
+	}
+
+	/** @param mixed $value */
+	public function sanitize_order_status($value): string
+	{
+		$status = sanitize_key((string) $value);
+		return in_array('wc-' . $status, array_keys(wc_get_order_statuses()), true) ? $status : '';
+	}
+
+	/** @param mixed $value */
+	public function sanitize_yes_no($value): string
+	{
+		return 'yes' === $value ? 'yes' : 'no';
+	}
+
+	/** @param mixed $value @return array<string, array<int, string|int>> */
+	public function sanitize_eligibility_rules($value): array
+	{
+		$value = is_array($value) ? $value : array();
+		$payment_methods = array_map('sanitize_key', (array) ($value['payment_methods'] ?? array()));
+		$shipping_methods = array_filter(array_map('sanitize_text_field', preg_split('/[\r\n,]+/', (string) ($value['shipping_methods'] ?? ''))));
+		$user_roles = array_map('sanitize_key', (array) ($value['user_roles'] ?? array()));
+		$products = preg_split('/[\s,]+/', (string) ($value['excluded_products'] ?? ''));
+
+		return array(
+			'payment_methods' => array_values(array_unique(array_filter($payment_methods))),
+			'shipping_methods' => array_values(array_unique($shipping_methods)),
+			'user_roles' => array_values(array_unique(array_filter($user_roles))),
+			'excluded_products' => array_values(array_unique(array_filter(array_map('absint', $products)))),
+		);
+	}
+
+	/** @param mixed $value */
+	public function sanitize_approval_action($value): string
+	{
+		$value = sanitize_key((string) $value);
+		return in_array($value, array('none', 'coupon', 'refund'), true) ? $value : 'none';
+	}
+
+	/** @param mixed $value */
+	public function sanitize_money_amount($value): string
+	{
+		return wc_format_decimal(max(0, (float) $value), wc_get_price_decimals());
 	}
 
 	/**
