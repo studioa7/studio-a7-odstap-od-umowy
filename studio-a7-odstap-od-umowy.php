@@ -3,7 +3,7 @@
  * Plugin Name:       Studio A7 – Odstąpienie od umowy for WooCommerce
  * Plugin URI:        https://studio-a7.pl
  * Description:       Narzędzie do obsługi oświadczeń o odstąpieniu od umowy dla sklepów korzystających z WooCommerce.
- * Version:           1.1.2
+ * Version:           1.1.3
  * Requires at least: 6.0
  * Requires PHP:      8.0
  * Author:            Studio A7
@@ -23,7 +23,7 @@ defined('ABSPATH') || exit;
 // -------------------------------------------------------------------------
 // Stałe wtyczki
 // -------------------------------------------------------------------------
-define('A7W_VERSION', '1.1.2');
+define('A7W_VERSION', '1.1.3');
 define('A7W_PLUGIN_FILE', __FILE__);
 define('A7W_PLUGIN_DIR', plugin_dir_path(__FILE__));
 define('A7W_PLUGIN_URL', plugin_dir_url(__FILE__));
