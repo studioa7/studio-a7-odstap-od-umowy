@@ -113,6 +113,22 @@ class A7_Withdrawal_DB
 	{
 		global $wpdb;
 
+		// Walidacja typów przed zapisem
+		if (!isset($data['order_id']) || absint($data['order_id']) <= 0) {
+			error_log('A7W DB Error: Invalid order_id in insert()');
+			return false;
+		}
+
+		if (!isset($data['customer_email']) || !is_email($data['customer_email'])) {
+			error_log('A7W DB Error: Invalid customer_email in insert()');
+			return false;
+		}
+
+		if (!isset($data['token']) || '' === trim($data['token'])) {
+			error_log('A7W DB Error: Missing token in insert()');
+			return false;
+		}
+
 		$defaults = array(
 			'order_id' => 0,
 			'customer_id' => 0,
@@ -136,6 +152,14 @@ class A7_Withdrawal_DB
 		);
 
 		$data = wp_parse_args($data, $defaults);
+
+		// Dodatkowa walidacja i sanityzacja
+		$data['order_id'] = absint($data['order_id']);
+		$data['customer_id'] = absint($data['customer_id']);
+		$data['customer_email'] = sanitize_email($data['customer_email']);
+		$data['customer_name'] = sanitize_text_field($data['customer_name']);
+		$data['status'] = sanitize_key($data['status']);
+		$data['token'] = sanitize_text_field($data['token']);
 
 		$result = $wpdb->insert(
 			$this->get_table(),
@@ -400,15 +424,18 @@ class A7_Withdrawal_DB
 	/**
 	 * Zwraca łączną liczbę potwierdzonych ilości dla pozycji zamówienia.
 	 *
-	 * @param int $order_id ID zamówienia.
+	 * @param int  $order_id ID zamówienia.
+	 * @param bool $lock     Czy użyć blokady FOR UPDATE (dla transakcji).
 	 * @return array<int, int>
 	 */
-	public function get_confirmed_item_quantities(int $order_id): array
+	public function get_confirmed_item_quantities(int $order_id, bool $lock = false): array
 	{
 		global $wpdb;
 
 		$table = $this->get_table();
-		$rows = $wpdb->get_col($wpdb->prepare("SELECT item_quantities FROM {$table} WHERE order_id = %d AND status IN ('confirmed', 'approved')", $order_id)); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		$lock_clause = $lock ? ' FOR UPDATE' : '';
+		// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		$rows = $wpdb->get_col($wpdb->prepare("SELECT item_quantities FROM {$table} WHERE order_id = %d AND status IN ('confirmed', 'approved', 'pending'){$lock_clause}", $order_id));
 		$quantities = array();
 
 		foreach ($rows as $row) {

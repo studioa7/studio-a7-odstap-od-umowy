@@ -394,28 +394,43 @@ class A7_Withdrawal_Main
 			</thead>
 			<tbody>
 				<?php foreach ($requests as $request): ?>
-					<?php $shipping = json_decode((string) $request->shipping_data, true);
-					$shipping = is_array($shipping) ? $shipping : array(); ?>
+					<?php
+					$shipping = json_decode((string) $request->shipping_data, true);
+					$shipping = is_array($shipping) ? $shipping : array();
+					?>
 					<tr>
 						<td>#<?php echo esc_html($request->order_id); ?></td>
 						<td><?php echo esc_html($request->status); ?></td>
 						<td><?php echo esc_html(wp_date(get_option('date_format'), strtotime($request->created_at))); ?></td>
-						<td><?php if (in_array($request->status, array('confirmed', 'approved'), true)): ?>
+						<td>
+							<?php if (in_array($request->status, array('confirmed', 'approved'), true)): ?>
 								<form class="a7w-shipping-update" data-id="<?php echo esc_attr($request->id); ?>"
-									data-nonce="<?php echo esc_attr(wp_create_nonce('a7w_shipping_' . $request->id)); ?>"><input
-										type="text" name="return_method"
+									data-nonce="<?php echo esc_attr(wp_create_nonce('a7w_shipping_' . $request->id)); ?>">
+									<input type="text" name="return_method"
 										value="<?php echo esc_attr($shipping['return_method'] ?? ''); ?>"
-										placeholder="<?php esc_attr_e('Metoda', 'studio-a7-odstap'); ?>"><input type="text"
-										name="tracking_number" value="<?php echo esc_attr($shipping['tracking_number'] ?? ''); ?>"
-										placeholder="<?php esc_attr_e('Numer śledzenia', 'studio-a7-odstap'); ?>"><button type="submit"
-										class="button"><?php esc_html_e('Zapisz', 'studio-a7-odstap'); ?></button></form>
-							<?php else: ?><span class="a7w-dash">—</span><?php endif; ?>
+										placeholder="<?php esc_attr_e('Metoda', 'studio-a7-odstap'); ?>">
+									<input type="text" name="tracking_number"
+										value="<?php echo esc_attr($shipping['tracking_number'] ?? ''); ?>"
+										placeholder="<?php esc_attr_e('Numer śledzenia', 'studio-a7-odstap'); ?>">
+									<button type="submit" class="button">
+										<?php esc_html_e('Zapisz', 'studio-a7-odstap'); ?>
+									</button>
+								</form>
+							<?php else: ?>
+								<span class="a7w-dash">—</span>
+							<?php endif; ?>
 						</td>
-						<td><?php if (in_array($request->status, array('pending', 'confirmed'), true)): ?><button type="button"
-									class="button a7w-cancel-withdrawal" data-id="<?php echo esc_attr($request->id); ?>"
-									data-nonce="<?php echo esc_attr(wp_create_nonce('a7w_cancel_' . $request->id)); ?>"><?php esc_html_e('Anuluj wniosek', 'studio-a7-odstap'); ?></button><?php endif; ?>
+						<td>
+							<?php if (in_array($request->status, array('pending', 'confirmed'), true)): ?>
+								<button type="button" class="button a7w-cancel-withdrawal"
+									data-id="<?php echo esc_attr($request->id); ?>"
+									data-nonce="<?php echo esc_attr(wp_create_nonce('a7w_cancel_' . $request->id)); ?>">
+									<?php esc_html_e('Anuluj wniosek', 'studio-a7-odstap'); ?>
+								</button>
+							<?php endif; ?>
 						</td>
-					</tr><?php endforeach; ?>
+					</tr>
+				<?php endforeach; ?>
 			</tbody>
 		</table>
 		<?php

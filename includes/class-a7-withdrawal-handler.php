@@ -21,7 +21,7 @@ class A7_Withdrawal_Handler
 {
 
 	private const GUEST_SESSION_COOKIE = 'a7w_guest_withdrawal';
-	private const GUEST_SESSION_TTL = 900;
+	private const GUEST_SESSION_TTL = 900; // 15 minut - można zmienić przez filtr 'a7w_guest_session_ttl'
 
 	/** @var A7_Withdrawal_DB */
 	private A7_Withdrawal_DB $db;
@@ -131,7 +131,16 @@ class A7_Withdrawal_Handler
 	public function mint_guest_session(int $order_id): bool
 	{
 		$token = wp_generate_password(64, false, false);
-		$expires = time() + self::GUEST_SESSION_TTL;
+
+		/**
+		 * Filtr pozwalający zmienić czas życia sesji gościa (w sekundach).
+		 *
+		 * @param int $ttl Czas życia sesji w sekundach (domyślnie 900 = 15 minut).
+		 */
+		$ttl = absint(apply_filters('a7w_guest_session_ttl', self::GUEST_SESSION_TTL));
+		$ttl = max(300, min(3600, $ttl)); // Min 5 minut, max 1 godzina
+
+		$expires = time() + $ttl;
 		$transient_key = $this->get_guest_session_transient_key($token);
 
 		set_transient(
@@ -139,8 +148,9 @@ class A7_Withdrawal_Handler
 			array(
 				'order_id' => $order_id,
 				'expires' => $expires,
+				'used' => false, // Flaga zapobiegająca replay attacks
 			),
-			self::GUEST_SESSION_TTL
+			$ttl
 		);
 
 		$set = setcookie(
@@ -201,18 +211,32 @@ class A7_Withdrawal_Handler
 	/**
 	 * Gets the order authorized by the current valid guest session.
 	 *
+	 * @param bool $mark_as_used Czy oznaczyć sesję jako wykorzystaną (dla kroku 2).
 	 * @return int Zero when the cookie is absent, invalid, or expired.
 	 */
-	public function get_guest_session_order_id(): int
+	public function get_guest_session_order_id(bool $mark_as_used = false): int
 	{
 		$token = $this->get_guest_session_token();
 		if ('' === $token) {
 			return 0;
 		}
 
-		$session = get_transient($this->get_guest_session_transient_key($token));
+		$transient_key = $this->get_guest_session_transient_key($token);
+		$session = get_transient($transient_key);
+
 		if (!is_array($session) || !isset($session['order_id'], $session['expires']) || time() >= (int) $session['expires']) {
 			return 0;
+		}
+
+		// Sprawdź czy sesja nie została już wykorzystana (replay attack prevention)
+		if (!empty($session['used'])) {
+			return 0;
+		}
+
+		// Oznacz sesję jako wykorzystaną jeśli wymagane (po potwierdzeniu w kroku 2)
+		if ($mark_as_used) {
+			$session['used'] = true;
+			set_transient($transient_key, $session, self::GUEST_SESSION_TTL);
 		}
 
 		return absint($session['order_id']);
@@ -353,6 +377,24 @@ class A7_Withdrawal_Handler
 			);
 		}
 
+		// Pobranie zamówienia i sprawdzenie kwalifikowalności PRZED walidacją formularza
+		$order = wc_get_order($order_id);
+		if (!$order) {
+			return array(
+				'success' => false,
+				'message' => __('Nie znaleziono zamówienia.', 'studio-a7-odstap'),
+			);
+		}
+
+		// KRYTYCZNE: Sprawdzenie uprawnień przed jakąkolwiek dalszą walidacją
+		$can = $this->can_withdraw($order);
+		if (is_wp_error($can)) {
+			return array(
+				'success' => false,
+				'message' => $can->get_error_message(),
+			);
+		}
+
 		if ('on' !== $consent) {
 			return array(
 				'success' => false,
@@ -372,64 +414,67 @@ class A7_Withdrawal_Handler
 			return array('success' => false, 'message' => $form_data->get_error_message());
 		}
 
-		// Pobranie zamówienia
-		$order = wc_get_order($order_id);
-		if (!$order) {
-			return array(
-				'success' => false,
-				'message' => __('Nie znaleziono zamówienia.', 'studio-a7-odstap'),
-			);
-		}
+		// KRYTYCZNE: Użyj transakcji bazodanowej dla race condition
+		global $wpdb;
+		$wpdb->query('START TRANSACTION');
 
-		// Sprawdzenie kwalifikowalności
-		$can = $this->can_withdraw($order);
-		if (is_wp_error($can)) {
-			return array(
-				'success' => false,
-				'message' => $can->get_error_message(),
-			);
-		}
+		try {
+			// Pobierz potwierdzone ilości z blokadą FOR UPDATE
+			$item_quantities = array();
+			$withdrawn_quantities = $this->db->get_confirmed_item_quantities($order->get_id(), true);
 
-		$item_quantities = array();
-		$withdrawn_quantities = $this->db->get_confirmed_item_quantities($order->get_id());
-		foreach ($order->get_items() as $item_id => $item) {
-			$quantity = isset($items[$item_id]) ? absint($items[$item_id]) : 0;
-			if ($quantity > 0) {
-				$remaining_quantity = $item->get_quantity() - ($withdrawn_quantities[(int) $item_id] ?? 0);
-				if ($quantity > $remaining_quantity) {
-					return array('success' => false, 'message' => __('Wybrana ilość przekracza ilość pozostałą do odstąpienia.', 'studio-a7-odstap'));
+			foreach ($order->get_items() as $item_id => $item) {
+				$quantity = isset($items[$item_id]) ? absint($items[$item_id]) : 0;
+				if ($quantity > 0) {
+					$remaining_quantity = $item->get_quantity() - ($withdrawn_quantities[(int) $item_id] ?? 0);
+					if ($quantity > $remaining_quantity) {
+						$wpdb->query('ROLLBACK');
+						return array('success' => false, 'message' => __('Wybrana ilość przekracza ilość pozostałą do odstąpienia.', 'studio-a7-odstap'));
+					}
+					$item_quantities[(int) $item_id] = $quantity;
 				}
-				$item_quantities[(int) $item_id] = $quantity;
 			}
-		}
 
-		if (empty($item_quantities)) {
-			return array('success' => false, 'message' => __('Wybierz co najmniej jedną pozycję i ilość do odstąpienia.', 'studio-a7-odstap'));
-		}
+			if (empty($item_quantities)) {
+				$wpdb->query('ROLLBACK');
+				return array('success' => false, 'message' => __('Wybierz co najmniej jedną pozycję i ilość do odstąpienia.', 'studio-a7-odstap'));
+			}
 
-		// Wygeneruj unikalny token
-		$token = $this->generate_token($order_id);
+			// Wygeneruj unikalny token
+			$token = $this->generate_token($order_id);
 
-		// Zapis do bazy (status: pending – czeka na potwierdzenie w kroku 2)
-		$withdrawal_id = $this->db->insert(
-			array(
-				'order_id' => $order_id,
-				'customer_id' => (int) $order->get_customer_id(),
-				'customer_email' => $order->get_billing_email(),
-				'customer_name' => trim($order->get_billing_first_name() . ' ' . $order->get_billing_last_name()),
-				'reason' => $reason,
-				'status' => 'pending',
-				'token' => $token,
-				'ip_address' => $this->get_client_ip(),
-				'user_agent' => '',
-				'item_quantities' => wp_json_encode($item_quantities),
-				'form_data' => wp_json_encode($form_data),
-				'shipping_data' => wp_json_encode($shipping_data),
-				'created_at' => current_time('mysql'),
-			)
-		);
+			// Zapis do bazy (status: pending – czeka na potwierdzenie w kroku 2)
+			$withdrawal_id = $this->db->insert(
+				array(
+					'order_id' => $order_id,
+					'customer_id' => (int) $order->get_customer_id(),
+					'customer_email' => $order->get_billing_email(),
+					'customer_name' => trim($order->get_billing_first_name() . ' ' . $order->get_billing_last_name()),
+					'reason' => $reason,
+					'status' => 'pending',
+					'token' => $token,
+					'ip_address' => $this->get_client_ip(),
+					'user_agent' => '',
+					'item_quantities' => wp_json_encode($item_quantities),
+					'form_data' => wp_json_encode($form_data),
+					'shipping_data' => wp_json_encode($shipping_data),
+					'created_at' => current_time('mysql'),
+				)
+			);
 
-		if (!$withdrawal_id) {
+			if (!$withdrawal_id) {
+				$wpdb->query('ROLLBACK');
+				return array(
+					'success' => false,
+					'message' => __('Wystąpił błąd podczas zapisywania wniosku. Spróbuj ponownie.', 'studio-a7-odstap'),
+				);
+			}
+
+			$wpdb->query('COMMIT');
+
+		} catch (\Exception $e) {
+			$wpdb->query('ROLLBACK');
+			error_log('A7W Withdrawal Error: ' . $e->getMessage());
 			return array(
 				'success' => false,
 				'message' => __('Wystąpił błąd podczas zapisywania wniosku. Spróbuj ponownie.', 'studio-a7-odstap'),
@@ -514,7 +559,10 @@ class A7_Withdrawal_Handler
 		// Pobierz zaktualizowany rekord
 		$withdrawal = $this->db->get((int) $withdrawal->id);
 		$order = wc_get_order((int) $withdrawal->order_id);
+
+		// Dla gości: oznacz sesję jako wykorzystaną i unieważnij po potwierdzeniu
 		if ($order instanceof \WC_Order && 0 === (int) $order->get_customer_id()) {
+			$this->get_guest_session_order_id(true); // Oznacz jako wykorzystaną
 			$this->revoke_guest_session();
 		}
 

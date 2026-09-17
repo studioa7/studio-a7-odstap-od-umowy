@@ -288,23 +288,49 @@
 
 	$(document).on('click', '.a7w-cancel-withdrawal', function () {
 		const $button = $(this);
-		$.post(a7wData.ajaxUrl, { action: 'a7w_cancel_withdrawal', withdrawal_id: $button.data('id'), _wpnonce: $button.data('nonce') }).done(function (response) {
-			if (response.success) { window.location.reload(); } else { window.alert(response.data && response.data.message ? response.data.message : a7wData.i18n.error_generic); }
-		});
+		$.post(a7wData.ajaxUrl, {
+			action: 'a7w_cancel_withdrawal',
+			withdrawal_id: $button.data('id'),
+			_wpnonce: $button.data('nonce')
+		})
+			.done(function (response) {
+				if (response.success) {
+					window.location.reload();
+				} else {
+					window.alert(response.data && response.data.message ? response.data.message : a7wData.i18n.error_generic);
+				}
+			})
+			.fail(function () {
+				window.alert(a7wData.i18n.error_generic);
+			});
 	});
 
 	$(document).on('submit', '.a7w-shipping-update', function (event) {
 		event.preventDefault();
 		const $form = $(this);
+		const $button = $form.find('button[type="submit"]');
+		$button.prop('disabled', true);
+
 		$.post(a7wData.ajaxUrl, {
 			action: 'a7w_update_shipping',
 			withdrawal_id: $form.data('id'),
 			_wpnonce: $form.data('nonce'),
 			return_method: $form.find('[name="return_method"]').val(),
 			tracking_number: $form.find('[name="tracking_number"]').val(),
-		}).done(function (response) {
-			if (!response.success) { window.alert(response.data && response.data.message ? response.data.message : a7wData.i18n.error_generic); }
-		});
+		})
+			.done(function (response) {
+				if (response.success) {
+					// Opcjonalnie: pokaż komunikat sukcesu
+				} else {
+					window.alert(response.data && response.data.message ? response.data.message : a7wData.i18n.error_generic);
+				}
+			})
+			.fail(function () {
+				window.alert(a7wData.i18n.error_generic);
+			})
+			.always(function () {
+				$button.prop('disabled', false);
+			});
 	});
 
 	// =========================================================================

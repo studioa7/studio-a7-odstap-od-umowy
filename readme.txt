@@ -4,7 +4,7 @@ Tags:              woocommerce, prawo odstąpienia od umowy, consumer rights, eu
 Requires at least: 6.0
 Tested up to:      6.8
 Requires PHP:      8.0
-Stable tag:        2.0.0
+Stable tag:        2.0.1
 License:           GPLv2 or later
 License URI:       https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -86,6 +86,17 @@ Tak. Treść i temat emaila edytujesz w **WooCommerce → Ustawienia → Email �
 7. Metabox w szczegółach zamówienia (admin)
 
 == Dziennik zmian ==
+
+= 2.0.1 =
+* 🔒 BEZPIECZEŃSTWO: Naprawiono race condition w częściowych odstąpieniach (transakcje bazodanowe z blokadą FOR UPDATE)
+* 🔒 BEZPIECZEŃSTWO: Przeniesiono walidację uprawnień przed przetwarzaniem formularza
+* 🔒 BEZPIECZEŃSTWO: Dodano ochronę przed replay attacks w sesjach gości (flaga "used")
+* ✅ Dodano walidację typów danych przed zapisem do bazy
+* ⚡ Zoptymalizowano eksport CSV (streaming zamiast ładowania wszystkich rekordów do pamięci)
+* 🐛 Naprawiono obsługę błędów w JavaScript (dodano .fail() handlers)
+* 📝 Poprawiono formatowanie kodu w widokach dla lepszej czytelności
+* 🔧 Dodano filtr 'a7w_guest_session_ttl' do konfiguracji czasu życia sesji gości
+* 📊 Dodano logowanie błędów dla łatwiejszego debugowania
 
 = 2.0.0 =
 * Konfigurowalne pola formularza z walidacją wartości i bezpieczną obsługą załączników PDF/JPG/PNG

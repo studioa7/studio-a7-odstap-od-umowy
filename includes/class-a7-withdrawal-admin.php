@@ -456,9 +456,7 @@ class A7_Withdrawal_Admin
 			return;
 		}
 
-		$data = $this->db->get_list(array('per_page' => 9999));
-		$rows = $data['items'];
-
+		// Streaming export - pobieraj dane partiami aby uniknąć przekroczenia limitu pamięci
 		header('Content-Type: text/csv; charset=utf-8');
 		header('Content-Disposition: attachment; filename="odstapienia-' . wp_date('Y-m-d') . '.csv"');
 		header('Pragma: no-cache');
@@ -485,23 +483,42 @@ class A7_Withdrawal_Admin
 			';'
 		);
 
-		foreach ($rows as $row) {
-			fputcsv(
-				$output,
-				array(
-					$row->id,
-					$row->order_id,
-					$row->customer_name,
-					$row->customer_email,
-					$this->get_status_label($row->status),
-					$row->created_at,
-					$row->confirmed_at ?? '',
-					$row->reason,
-					$row->ip_address,
-				),
-				';'
-			);
-		}
+		// Eksportuj w partiach po 100 rekordów
+		$page = 1;
+		$per_page = 100;
+
+		do {
+			$data = $this->db->get_list(array(
+				'per_page' => $per_page,
+				'page' => $page,
+			));
+
+			foreach ($data['items'] as $row) {
+				fputcsv(
+					$output,
+					array(
+						$row->id,
+						$row->order_id,
+						$row->customer_name,
+						$row->customer_email,
+						$this->get_status_label($row->status),
+						$row->created_at,
+						$row->confirmed_at ?? '',
+						$row->reason,
+						$row->ip_address,
+					),
+					';'
+				);
+			}
+
+			$page++;
+
+			// Zwolnij pamięć
+			if (function_exists('wp_cache_flush')) {
+				wp_cache_flush();
+			}
+
+		} while (count($data['items']) === $per_page);
 
 		fclose($output); // phpcs:ignore
 		exit;
