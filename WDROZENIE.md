@@ -729,8 +729,8 @@ wp db query "ALTER TABLE wp_a7_withdrawals ENGINE=InnoDB"
 - **GitHub:** https://github.com/studioa7/studio-a7-odstap-od-umowy
 
 ### Kontakt
-- **Email:** kontakt@studio-a7.pl
-- **Website:** https://studio-a7.pl
+- **Email:** kontakt@studioa7.pl
+- **Website:** https://studioa7.pl
 
 ### Zgłaszanie Błędów
 - **GitHub Issues:** https://github.com/studioa7/studio-a7-odstap-od-umowy/issues
